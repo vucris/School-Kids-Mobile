@@ -1,81 +1,81 @@
 <template>
-  <q-layout view="lHh Lpr lFf">
-    <q-header elevated>
-      <q-toolbar>
-        <q-btn flat dense round icon="menu" aria-label="Menu" @click="toggleLeftDrawer" />
-
-        <q-toolbar-title> AI HEALING</q-toolbar-title>
-
-        <div>Quasar v{{ $q.version }}</div>
+  <q-layout view="hHh lpR fFf">
+    <!-- HEADER -->
+    <q-header elevated class="bg-white text-dark">
+      <q-toolbar class="justify-center">
+        <div class="text-subtitle1 text-weight-medium">
+          {{ pageTitle }}
+        </div>
       </q-toolbar>
     </q-header>
 
-    <q-drawer v-model="leftDrawerOpen" show-if-above bordered>
-      <q-list>
-        <q-item-label header>vu dep trai</q-item-label>
-
-        <EssentialLink v-for="link in linksList" :key="link.title" v-bind="link" />
-      </q-list>
-    </q-drawer>
-
+    <!-- NỘI DUNG TRANG -->
     <q-page-container>
       <router-view />
     </q-page-container>
+
+    <!-- BOTTOM TABS -->
+    <q-footer bordered class="bg-white">
+      <q-tabs
+        v-model="tab"
+        dense
+        class="text-grey-6 full-width"
+        active-color="primary"
+        indicator-color="transparent"
+        align="justify"
+      >
+        <q-route-tab
+          name="feed"
+          to="/feed"
+          icon="article"
+          label="Bảng tin"
+        />
+        <q-route-tab
+          name="features"
+          to="/features"
+          icon="apps"
+          label="Tính năng"
+        />
+        <q-route-tab
+          name="notifications"
+          to="/notifications"
+          icon="notifications"
+          label="Thông báo"
+        />
+        <q-route-tab
+          name="account"
+          to="/account"
+          icon="person"
+          label="Tài khoản"
+        />
+      </q-tabs>
+    </q-footer>
   </q-layout>
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import EssentialLink from 'components/EssentialLink.vue'
+import { ref, watch, computed } from 'vue';
+import { useRoute } from 'vue-router';
 
-const linksList = [
-  {
-    title: 'Docs',
-    caption: 'quasar.dev',
-    icon: 'school',
-    link: 'https://quasar.dev',
-  },
-  {
-    title: 'Github',
-    caption: 'github.com/quasarframework',
-    icon: 'code',
-    link: 'https://github.com/quasarframework',
-  },
-  {
-    title: 'Discord Chat Channel',
-    caption: 'chat.quasar.dev',
-    icon: 'chat',
-    link: 'https://chat.quasar.dev',
-  },
-  {
-    title: 'Forum',
-    caption: 'forum.quasar.dev',
-    icon: 'record_voice_over',
-    link: 'https://forum.quasar.dev',
-  },
-  {
-    title: 'Twitter',
-    caption: '@quasarframework',
-    icon: 'rss_feed',
-    link: 'https://twitter.quasar.dev',
-  },
-  {
-    title: 'Facebook',
-    caption: '@QuasarFramework',
-    icon: 'public',
-    link: 'https://facebook.quasar.dev',
-  },
-  {
-    title: 'Quasar Awesome',
-    caption: 'Community Quasar projects',
-    icon: 'favorite',
-    link: 'https://awesome.quasar.dev',
-  },
-]
+const route = useRoute();
+const tab = ref(route.name ?? 'features');
 
-const leftDrawerOpen = ref(false)
+watch(
+  () => route.name,
+  name => {
+    if (name) tab.value = name;
+  },
+  { immediate: true }
+);
 
-function toggleLeftDrawer() {
-  leftDrawerOpen.value = !leftDrawerOpen.value
-}
+const pageTitleMap = {
+  feed: 'Bảng tin',
+  features: 'Tính năng',
+  notifications: 'Thông báo',
+  account: 'Tài khoản'
+};
+
+const pageTitle = computed(
+  () => pageTitleMap[route.name] || 'Health Tracking'
+);
 </script>

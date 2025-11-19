@@ -1,30 +1,84 @@
 // src/router/routes.js
-
 const routes = [
   {
     path: '/login',
     name: 'login',
     component: () => import('pages/LoginPage.vue'),
-    meta: { guestOnly: true }
+    meta: { guestOnly: true },
   },
 
   {
     path: '/',
     component: () => import('layouts/MainLayout.vue'),
+    meta: { requiresAuth: true },
     children: [
+      // vào / thì chuyển sang /feed
       {
         path: '',
-        name: 'dashboard',
+        redirect: { name: 'feed' },
+      },
+
+      {
+        path: 'feed',
+        name: 'feed',
         component: () => import('pages/IndexPage.vue'),
-        meta: { requiresAuth: true }
-      }
-    ]
+        meta: { requiresAuth: true },
+      },
+
+      {
+        path: 'features',
+        name: 'features',
+        component: () => import('pages/FeaturesPage.vue'),
+        meta: { requiresAuth: true },
+      },
+
+      {
+        path: 'health',
+        name: 'health',
+        component: () => import('pages/HealthPage.vue'),
+        meta: { requiresAuth: true },
+      },
+
+      {
+        path: 'attendance',
+        name: 'attendance',
+        component: () => import('pages/AttendancePage.vue'),
+        meta: { requiresAuth: true },
+      },
+
+      {
+        path: 'menu',
+        name: 'menu',
+        component: () => import('pages/MenuPage.vue'),
+        meta: { requiresAuth: true },
+      },
+
+      {
+        path: 'notifications',
+        name: 'notifications',
+        component: () => import('pages/NotificationsPage.vue'),
+        meta: { requiresAuth: true },
+      },
+
+      {
+        path: 'account',
+        name: 'account',
+        component: () => import('pages/AccountPage.vue'),
+        meta: { requiresAuth: true },
+      },
+      // {
+      //   path: 'features/album',
+      //   name: 'album',
+      //   component: () => import('pages/AlbumPage.vue'),
+      //   meta: { requiresAuth: true },
+      // },
+    ],
   },
 
   {
     path: '/:catchAll(.*)*',
-    component: () => import('pages/ErrorNotFound.vue')
-  }
-];
+    component: () => import('pages/ErrorNotFound.vue'),
+  },
+]
 
-export default routes;
+export default routes

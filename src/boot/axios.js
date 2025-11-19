@@ -2,25 +2,26 @@
 import { boot } from 'quasar/wrappers';
 import axios from 'axios';
 
-// Đổi BASE_URL cho đúng môi trường của bạn
-// Dev trên PC: dùng localhost
-// Dev trên điện thoại thật: dùng IP máy BE (vd: http://192.168.1.10:8080/api/v1)
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api/v1';
+const USE_CREDENTIALS = (import.meta.env.VITE_WITH_CREDENTIALS ?? 'false') === 'true';
+
 const api = axios.create({
-  baseURL: 'http://localhost:8080/api/v1',
-  withCredentials: true, // để BE set cookie nếu cần
+  baseURL: BASE_URL,
+  withCredentials: USE_CREDENTIALS,
 });
 
-export default boot(({ app }) => {
-  app.config.globalProperties.$axios = axios;
-  app.config.globalProperties.$api = api;
-});
+// luôn gắn Authorization từ localStorage
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('accessToken');
+  const token = localStorage.getItem('access_token'); // 👈 trùng với auth.js
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
 });
 
+export default boot(({ app }) => {
+  app.config.globalProperties.$axios = axios;
+  app.config.globalProperties.$api = api;
+});
 
 export { axios, api };

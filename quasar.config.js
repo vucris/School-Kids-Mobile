@@ -2,7 +2,8 @@ import { defineConfig } from '#q-app/wrappers'
 
 export default defineConfig(() => {
   return {
-boot: ['axios', 'auth-guard'],
+boot: ['pinia', 'axios', 'auth-guard'],
+
 
 
     css: ['app.scss'],
