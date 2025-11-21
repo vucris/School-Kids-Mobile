@@ -400,10 +400,11 @@ function onLogout() {
     },
     cancelLabel: "Huỷ",
   }).onOk(async () => {
-    await auth.logout();
-    router.replace({ name: "login" });
+    await auth.logout();              // 👈 gọi BE xoá token whitelist
+    router.replace({ name: "login" }); // quay về trang login
   });
 }
+
 </script>
 
 <style scoped>

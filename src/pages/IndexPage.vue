@@ -73,7 +73,6 @@
               class="row items-start q-mt-sm children-switch"
             >
               <div class="col-auto">
-                <span class="text-caption text-grey-7">Chọn bé:</span>
               </div>
               <div class="col">
                 <div class="row no-wrap scroll-x">
@@ -182,10 +181,12 @@
 <script setup>
 import { ref, onMounted } from "vue";
 import { useQuasar } from "quasar";
+import { useRouter } from "vue-router";          // 👈 THÊM
 import { useAuthStore } from "src/stores/auth";
 import { api } from "boot/axios";
 
 const $q = useQuasar();
+const router = useRouter();                      // 👈 THÊM
 const auth = useAuthStore();
 
 const loading = ref(false);
@@ -226,7 +227,6 @@ async function fetchParentAndChildren() {
       return;
     }
 
-    // 1) Lấy danh sách phụ huynh → tìm theo username
     const resParents = await api.get("/parents/all");
     const apiParents = resParents.data || {};
     const parents = apiParents.data || [];
@@ -242,7 +242,6 @@ async function fetchParentAndChildren() {
 
     currentParentId.value = parent.id;
 
-    // 2) Lấy danh sách con của phụ huynh
     const resChildren = await api.get(`/parents/${parent.id}/children`);
     const apiChildren = resChildren.data || {};
     const list = apiChildren.data || [];
@@ -252,7 +251,7 @@ async function fetchParentAndChildren() {
       name: s.fullName,
       className: s.className,
       studentCode: s.studentCode,
-      avatar: "https://i.postimg.cc/2jFv66sG/avatar-kid.png", // sau này thay avatar thật nếu BE có
+      avatar: "https://i.postimg.cc/2jFv66sG/avatar-kid.png",
     }));
 
     if (children.value.length > 0) {
@@ -324,11 +323,23 @@ function openChildDetail() {
   });
 }
 
+// 👇 CHỈNH LẠI: bấm album → chuyển qua trang chi tiết
 function openAlbum(album) {
-  console.log("Open album", album);
-  $q.notify({
-    type: "info",
-    message: `Mở album: ${album.title}`,
+  if (!currentParentId.value || !child.value.id) {
+    $q.notify({
+      type: "warning",
+      message: "Thiếu thông tin phụ huynh hoặc bé.",
+    });
+    return;
+  }
+
+  // lưu tạm parent + student để trang chi tiết dùng gọi API
+  localStorage.setItem("currentParentId", String(currentParentId.value));
+  localStorage.setItem("currentStudentId", String(child.value.id));
+
+  router.push({
+    name: "album-detail",
+    params: { albumId: album.id },
   });
 }
 
@@ -343,6 +354,7 @@ onMounted(() => {
   }
 });
 </script>
+
 
 <style scoped>
 .album-page {

@@ -66,6 +66,19 @@ const routes = [
         component: () => import('pages/AccountPage.vue'),
         meta: { requiresAuth: true },
       },
+      {
+        path: 'albums/:albumId',
+        name: 'album-detail',
+        component: () => import('pages/AlbumDetailPage.vue'),
+        meta: { requiresAuth: true },
+      },
+      {
+        path: '/parent/weekly-menu',
+        name: 'parent-weekly-menu',
+        component: () => import('pages/MenuWeeklyPage.vue'),
+        meta: { requiresAuth: true },
+      },
+
       // {
       //   path: 'features/album',
       //   name: 'album',

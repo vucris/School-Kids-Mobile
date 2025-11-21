@@ -85,14 +85,14 @@ const features = [
     ringClass: "ring-red",
     route: "/health", // 👈 đổi từ /features/health thành /health
   },
-  // {
-  //   key: "menu",
-  //   label: "Thực đơn",
-  //   desc: "Bữa ăn hàng ngày",
-  //   icon: "restaurant_menu",
-  //   ringClass: "ring-indigo",
-  //   route: "/features/menu",
-  // },
+  {
+    key: "menu",
+    label: "Thực đơn",
+    desc: "Bữa ăn hàng ngày",
+    icon: "restaurant_menu",
+    ringClass: "ring-indigo",
+    route: "/menu",
+  },
   {
     key: "fee",
     label: "Học phí",
@@ -101,14 +101,14 @@ const features = [
     ringClass: "ring-amber",
     route: "/features/fee",
   },
-  {
-    key: "activity",
-    label: "Hoạt động hằng ngày",
-    desc: "Bé chơi bé ăn",
-    icon: "celebration",
-    ringClass: "ring-purple",
-    route: "/menu", // mở page thực đơn
-  },
+  // {
+  //   key: "activity",
+  //   label: "Hoạt động hằng ngày",
+  //   desc: "Bé chơi bé ăn",
+  //   icon: "celebration",
+  //   ringClass: "ring-purple",
+  //   route: "/menu", // mở page thực đơn
+  // },
 ];
 
 function go(item) {

@@ -37,7 +37,7 @@ boot: ['pinia', 'axios', 'auth-guard'],
 
     framework: {
       config: {},
-      plugins: ['Notify'], // ✅ thêm plugin Notify
+      plugins: [ 'Dialog','Notify'], // ✅ thêm plugin Notify
     },
 
     animations: [],
