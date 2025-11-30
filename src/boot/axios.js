@@ -3,7 +3,8 @@ import { boot } from 'quasar/wrappers';
 import axios from 'axios';
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api/v1';
-const USE_CREDENTIALS = (import.meta.env.VITE_WITH_CREDENTIALS ?? 'false') === 'true';
+const USE_CREDENTIALS =
+  (import.meta.env.VITE_WITH_CREDENTIALS ?? 'true') === 'true';
 
 const api = axios.create({
   baseURL: BASE_URL,

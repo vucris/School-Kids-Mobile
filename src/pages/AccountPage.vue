@@ -400,10 +400,16 @@ function onLogout() {
     },
     cancelLabel: "Huỷ",
   }).onOk(async () => {
-    await auth.logout();              // 👈 gọi BE xoá token whitelist
-    router.replace({ name: "login" }); // quay về trang login
+    await auth.logout(); // gọi /auth/logout + xoá token local
+
+    // Điều hướng về login
+    router.replace({ name: "login" });
+
+    // 🔥 Reset toàn bộ SPA giống như anh tắt đa nhiệm & mở lại
+    window.location.reload();
   });
 }
+
 
 </script>
 

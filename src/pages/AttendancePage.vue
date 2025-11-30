@@ -45,7 +45,7 @@
           dense
         >
           <q-tab name="attendance" label="Điểm danh" />
-          <q-tab name="leave" label="Đơn xin nghỉ" />
+        
         </q-tabs>
       </div>
 

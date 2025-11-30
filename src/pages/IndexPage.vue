@@ -16,7 +16,7 @@
             <div class="row no-wrap items-center q-mb-xs">
               <div class="col-auto q-pr-sm">
                 <q-avatar size="58px" class="child-avatar">
-                  <img :src="child.avatar" alt="avatar" />
+                  <img :src="child.avatar || defaultAvatar" alt="avatar" />
                 </q-avatar>
               </div>
 
@@ -72,8 +72,7 @@
               v-if="children.length > 1"
               class="row items-start q-mt-sm children-switch"
             >
-              <div class="col-auto">
-              </div>
+              <div class="col-auto"></div>
               <div class="col">
                 <div class="row no-wrap scroll-x">
                   <q-chip
@@ -142,36 +141,57 @@
           Hiện chưa có album nào cho bé trong khoảng thời gian được hiển thị.
         </q-banner>
 
-        <div v-else class="row q-col-gutter-md q-mt-sm">
-          <div v-for="album in albums" :key="album.id" class="col-6">
-            <q-card class="album-card" @click="openAlbum(album)">
-              <div class="album-cover-wrapper">
-                <img :src="album.coverUrl" alt="cover" class="album-cover" />
-                <div class="album-photo-count">
-                  <q-icon name="photo_camera" size="14px" class="q-mr-xs" />
-                  <span class="text-caption">{{ album.photoCount }}</span>
+        <!-- DẠNG BÀI VIẾT FACEBOOK -->
+        <div v-else class="album-list-vertical q-mt-sm">
+          <q-card
+            v-for="album in albums"
+            :key="album.id"
+            class="album-card album-card-post q-mb-md"
+            @click="openAlbum(album)"
+          >
+            <!-- HEADER: avatar + người đăng + giờ/ngày + tiêu đề phía dưới -->
+            <q-card-section class="q-pb-xs post-header">
+              <div class="row no-wrap items-center">
+                <q-avatar size="34px" class="q-mr-sm">
+                  <img :src="child.avatar || defaultAvatar" alt="avatar" />
+                </q-avatar>
+
+                <div class="col">
+                  <!-- người đăng -->
+                  <div class="text-caption text-grey-8 text-weight-medium">
+                    {{ album.createdBy || child.className || "Giáo viên" }}
+                  </div>
+                  <!-- giờ đăng · ngày đăng -->
+                  <div class="text-caption text-grey-6">
+                    {{ formatDateTime(album.createdAt) }}
+                  </div>
                 </div>
               </div>
 
-              <q-card-section class="q-pt-sm q-pb-xs">
-                <div class="text-caption text-weight-medium ellipsis-2-lines">
-                  {{ album.title }}
-                </div>
+              <!-- TIÊU ĐỀ ALBUM BÊN DƯỚI NGƯỜI ĐĂNG -->
+              <div class="text-body2 text-weight-medium q-mt-xs ellipsis-2-lines">
+                {{ album.title }}
+              </div>
 
-                <!-- MÔ TẢ ALBUM DƯỚI TIÊU ĐỀ -->
-                <div
-                  v-if="album.description"
-                  class="text-caption text-grey-7 q-mt-xs album-desc ellipsis-2-lines"
-                >
-                  {{ album.description }}
-                </div>
+              <!-- mô tả giống status -->
+              <div
+                v-if="album.description"
+                class="text-caption text-grey-8 q-mt-xs album-desc ellipsis-2-lines"
+              >
+                {{ album.description }}
+              </div>
+            </q-card-section>
 
-                <div class="text-caption text-grey-6 q-mt-xs">
-                  {{ formatDate(album.createdAt) }}
-                </div>
-              </q-card-section>
-            </q-card>
-          </div>
+            <!-- ẢNH COVER RỘNG NGANG -->
+            <div class="album-cover-wrapper post-cover-wrapper">
+              <img :src="album.coverUrl" alt="cover" class="album-cover" />
+
+              <div class="album-photo-count">
+                <q-icon name="photo_camera" size="14px" class="q-mr-xs" />
+                <span class="text-caption">{{ album.photoCount }}</span>
+              </div>
+            </div>
+          </q-card>
         </div>
       </section>
     </div>
@@ -181,13 +201,16 @@
 <script setup>
 import { ref, onMounted } from "vue";
 import { useQuasar } from "quasar";
-import { useRouter } from "vue-router";          // 👈 THÊM
+import { useRouter } from "vue-router";
 import { useAuthStore } from "src/stores/auth";
 import { api } from "boot/axios";
+import { DEFAULT_AVATAR } from "src/constants/avatar";
 
 const $q = useQuasar();
-const router = useRouter();                      // 👈 THÊM
+const router = useRouter();
 const auth = useAuthStore();
+
+const defaultAvatar = DEFAULT_AVATAR;
 
 const loading = ref(false);
 const children = ref([]); // toàn bộ con
@@ -196,20 +219,23 @@ const child = ref({
   name: "Bé yêu",
   className: "",
   studentCode: "",
-  avatar: "https://i.postimg.cc/2jFv66sG/avatar-kid.png",
+  avatar: DEFAULT_AVATAR,
 });
 const albums = ref([]);
 const currentParentId = ref(null);
 
-// ---- FORMAT DATE ----
-function formatDate(value) {
+// ---- FORMAT DATE + TIME: giờ trước ngày ----
+function formatDateTime(value) {
   if (!value) return "";
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return value;
   const dd = String(d.getDate()).padStart(2, "0");
   const mm = String(d.getMonth() + 1).padStart(2, "0");
   const yyyy = d.getFullYear();
-  return `${dd}/${mm}/${yyyy}`;
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mi = String(d.getMinutes()).padStart(2, "0");
+  // ví dụ: 09:15 · 27/11/2025
+  return `${hh}:${mi} · ${dd}/${mm}/${yyyy}`;
 }
 
 // ---- LẤY PARENT + CHILDREN TỪ BE ----
@@ -251,7 +277,7 @@ async function fetchParentAndChildren() {
       name: s.fullName,
       className: s.className,
       studentCode: s.studentCode,
-      avatar: "https://i.postimg.cc/2jFv66sG/avatar-kid.png",
+      avatar: DEFAULT_AVATAR,
     }));
 
     if (children.value.length > 0) {
@@ -279,12 +305,14 @@ async function fetchAlbumsForChild(studentId) {
     );
     const apiAlbums = res.data || {};
     const list = apiAlbums.data || [];
-
     albums.value = list.map((a) => ({
       id: a.albumId,
       title: a.albumTitle,
       description: a.description,
       createdAt: a.createdAt,
+      // info người đăng lấy từ BE (tùy DTO của bạn)
+      createdBy:
+        a.createdByName || a.createdBy || a.teacherName || a.uploaderName || "",
       photoCount: Array.isArray(a.photos) ? a.photos.length : 0,
       coverUrl:
         Array.isArray(a.photos) && a.photos.length > 0
@@ -304,7 +332,11 @@ async function fetchAlbumsForChild(studentId) {
 
 // ---- CHỌN BÉ ----
 function selectChild(s) {
-  child.value = { ...child.value, ...s };
+  child.value = {
+    ...child.value,
+    ...s,
+    avatar: DEFAULT_AVATAR, // luôn dùng avatar mặc định
+  };
   fetchAlbumsForChild(s.id);
 }
 
@@ -317,13 +349,23 @@ function reloadAlbums() {
 
 // ---- ACTION NHỎ ----
 function openChildDetail() {
-  $q.notify({
-    type: "info",
-    message: "Sau này sẽ mở trang chi tiết hồ sơ bé.",
+  if (!child.value.id) {
+    $q.notify({
+      type: "warning",
+      message: "Chưa chọn bé để xem chi tiết.",
+    });
+    return;
+  }
+
+  localStorage.setItem("currentStudentId", String(child.value.id));
+
+  router.push({
+    name: "child-detail",
+    params: { studentId: child.value.id },
   });
 }
 
-// 👇 CHỈNH LẠI: bấm album → chuyển qua trang chi tiết
+// bấm album → chuyển qua trang chi tiết
 function openAlbum(album) {
   if (!currentParentId.value || !child.value.id) {
     $q.notify({
@@ -333,7 +375,6 @@ function openAlbum(album) {
     return;
   }
 
-  // lưu tạm parent + student để trang chi tiết dùng gọi API
   localStorage.setItem("currentParentId", String(currentParentId.value));
   localStorage.setItem("currentStudentId", String(child.value.id));
 
@@ -354,7 +395,6 @@ onMounted(() => {
   }
 });
 </script>
-
 
 <style scoped>
 .album-page {
@@ -478,11 +518,32 @@ onMounted(() => {
   overflow: hidden;
 }
 
+/* danh sách dạng dọc */
+.album-list-vertical {
+  display: flex;
+  flex-direction: column;
+}
+
+/* card kiểu post facebook */
+.album-card-post {
+  width: 100%;
+}
+
+/* header của post */
+.post-header {
+  padding-bottom: 4px;
+}
+
+/* cover ngang (rộng) hơn một chút */
 .album-cover-wrapper {
   position: relative;
   width: 100%;
   padding-top: 75%; /* 4:3 ratio */
   overflow: hidden;
+}
+
+.post-cover-wrapper {
+  padding-top: 70%; /* tỷ lệ 7:10, giống ảnh bài viết */
 }
 
 .album-cover {
@@ -505,9 +566,9 @@ onMounted(() => {
   align-items: center;
 }
 
-/* mô tả album */
+/* mô tả album (status) */
 .album-desc {
-  line-height: 1.3;
+  line-height: 1.4;
 }
 
 /* multi-line ellipsis */

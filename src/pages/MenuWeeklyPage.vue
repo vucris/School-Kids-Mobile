@@ -4,14 +4,9 @@
       <!-- HEADER + BACK -->
       <div class="row items-center q-mb-sm">
         <div class="col-auto">
-          <q-btn
-            flat
-            round
-            dense
-            icon="arrow_back"
-            @click="goBack"
-          />
+          <q-btn flat round dense icon="arrow_back" @click="goBack" />
         </div>
+
         <div class="col text-center q-pr-md">
           <div class="text-subtitle1 text-weight-semibold">
             Thực đơn tuần của bé {{ childName }}
@@ -20,6 +15,7 @@
             {{ weekRangeLabel }}
           </div>
         </div>
+
         <div class="col-auto">
           <q-avatar size="36px">
             <img :src="childAvatar" alt="child" />
@@ -68,10 +64,7 @@
       </q-banner>
 
       <!-- THỰC ĐƠN CẢ TUẦN -->
-      <q-card
-        v-else
-        class="week-menu-card q-mt-md"
-      >
+      <q-card v-else class="week-menu-card q-mt-md">
         <q-card-section class="q-pb-xs">
           <div class="text-caption text-grey-7">
             Lớp {{ currentChild?.className }} • Mã HS: {{ currentChild?.studentCode }}
@@ -84,11 +77,7 @@
         <q-separator spaced />
 
         <q-card-section class="q-pt-xs">
-          <div
-            v-for="day in days"
-            :key="day.key"
-            class="day-block q-mb-md"
-          >
+          <div v-for="day in days" :key="day.key" class="day-block q-mb-md">
             <!-- tiêu đề ngày -->
             <div class="row items-center justify-between q-mb-xs">
               <div class="text-body2 text-weight-medium">
@@ -208,8 +197,9 @@ const selectedChildId = ref(null);
 
 const childAvatar = ref("https://i.postimg.cc/2jFv66sG/avatar-kid.png");
 
-const weekStart = ref(null); // Date (thứ 2 tuần)
-const days = ref([]); // [{ key, longLabel, dateFull }]
+const weekStart = ref(null); // Date
+const weekEnd = ref(null);   // Date
+const days = ref([]);        // [{ key, longLabel, dateFull }]
 
 const menusMap = ref(new Map()); // Map<yyyy-MM-dd, { breakfast, lunch, snack }>
 const menuUpdatedAt = ref("");
@@ -219,6 +209,7 @@ const sleep = ref({
   to: "14:00",
 });
 
+// ====== COMPUTED ======
 const currentChild = computed(
   () => children.value.find((c) => c.id === selectedChildId.value) || null
 );
@@ -226,14 +217,13 @@ const currentChild = computed(
 const childName = computed(() => currentChild.value?.name || "Bé của bạn");
 
 const weekRangeLabel = computed(() => {
-  if (!weekStart.value) return "";
-  const start = weekStart.value;
-  const end = new Date(start);
-  end.setDate(end.getDate() + 4);
-  return `${formatDDMMYYYY(start)} - ${formatDDMMYYYY(end)}`;
+  if (!weekStart.value || !weekEnd.value) return "";
+  return `${formatDDMMYYYY(weekStart.value)} - ${formatDDMMYYYY(
+    weekEnd.value
+  )}`;
 });
 
-// ====== HELPERS DATE ======
+// ====== DATE HELPERS ======
 function formatDDMMYYYY(date) {
   const d = new Date(date);
   const dd = String(d.getDate()).padStart(2, "0");
@@ -251,9 +241,10 @@ function toDMY(date) {
 }
 
 function getWeekStart(date) {
+  // về thứ 2 của tuần chứa date
   const d = new Date(date);
-  const day = d.getDay(); // 0=CN..6=Th7
-  const diff = (day === 0 ? -6 : 1) - day; // về thứ 2
+  const day = d.getDay(); // 0 = CN
+  const diff = (day === 0 ? -6 : 1) - day;
   d.setDate(d.getDate() + diff);
   d.setHours(0, 0, 0, 0);
   return d;
@@ -272,43 +263,50 @@ function weekdayFullLabel(d) {
   return map[d.getDay()];
 }
 
+// parse cả 2 kiểu: dd-MM-yyyy (BE) hoặc ISO (weekStart ở query)
 function parseApiDate(str) {
   if (!str) return null;
+
+  // dd-MM-yyyy
   if (/^\d{2}-\d{2}-\d{4}$/.test(str)) {
     const [dd, mm, yyyy] = str.split("-").map(Number);
     return new Date(yyyy, mm - 1, dd);
   }
+
+  // ISO, yyyy-MM-dd...
   const d = new Date(str);
   if (Number.isNaN(d.getTime())) return null;
   return d;
 }
 
-function buildWeekFromParam(weekStartStr) {
-  let base;
-  if (typeof weekStartStr === "string") {
-    const d = new Date(weekStartStr);
-    if (!Number.isNaN(d.getTime())) {
-      base = d;
-    }
-  }
-  if (!base) {
-    base = new Date();
+// Xây dựng danh sách ngày trong tuần từ param route
+function buildWeekFromParams(wsStr, weStr) {
+  let start = parseApiDate(wsStr);
+  if (!start) {
+    // fallback: tuần hiện tại
+    start = getWeekStart(new Date());
   }
 
-  const start = getWeekStart(base);
+  let end = parseApiDate(weStr);
+  if (!end) {
+    // nếu không truyền weekEnd thì cộng 6 ngày (T2 -> CN)
+    end = new Date(start);
+    end.setDate(end.getDate() + 6);
+  }
+
   weekStart.value = start;
+  weekEnd.value = end;
 
   const arr = [];
-  for (let i = 0; i < 5; i += 1) {
-    const d = new Date(start);
-    d.setDate(d.getDate() + i);
+  const d = new Date(start);
+  while (d <= end) {
     const key = d.toISOString().slice(0, 10);
-
     arr.push({
       key,
       longLabel: weekdayFullLabel(d),
       dateFull: formatDDMMYYYY(d),
     });
+    d.setDate(d.getDate() + 1);
   }
   days.value = arr;
 }
@@ -353,18 +351,13 @@ async function loadParentAndChildren() {
       studentCode: s.studentCode,
     }));
 
-    // ưu tiên childId trên route nếu có
     const routeChildId = route.query.childId
       ? Number(route.query.childId)
       : null;
 
     if (routeChildId) {
       const exist = children.value.find((c) => c.id === routeChildId);
-      if (exist) {
-        selectedChildId.value = routeChildId;
-      } else if (children.value.length && !selectedChildId.value) {
-        selectedChildId.value = children.value[0].id;
-      }
+      selectedChildId.value = exist ? exist.id : children.value[0]?.id || null;
     } else if (children.value.length && !selectedChildId.value) {
       selectedChildId.value = children.value[0].id;
     }
@@ -381,14 +374,14 @@ async function loadParentAndChildren() {
 
 // ====== LOAD MENU TUẦN ======
 async function loadWeekMenu() {
-  if (!parentId.value || !selectedChildId.value || !weekStart.value) return;
+  if (!parentId.value || !selectedChildId.value || !weekStart.value || !weekEnd.value)
+    return;
 
   try {
     loading.value = true;
 
     const start = new Date(weekStart.value);
-    const end = new Date(weekStart.value);
-    end.setDate(end.getDate() + 4);
+    const end = new Date(weekEnd.value);
 
     const params = {
       startDate: toDMY(start),
@@ -404,10 +397,9 @@ async function loadWeekMenu() {
     const list = apiResp.data || [];
 
     const map = new Map();
-    let latestUpdated = null;
 
     list.forEach((m) => {
-      const dateStr = m.date || m.menuDate || m.day;
+      const dateStr = m.menuDate || m.date || m.day;
       const d = parseApiDate(dateStr);
       if (!d) return;
 
@@ -419,18 +411,26 @@ async function loadWeekMenu() {
         snack: [],
       };
 
-      const meals = m.meals || m.menuItems || m.items || [];
+      const meals = m.meals || [];
+
       meals.forEach((meal) => {
         const type = (meal.mealType || meal.type || "").toUpperCase();
-        const dishesRaw = meal.dishes || meal.dishList || [];
+        let dishNames = [];
 
-        const dishNames = dishesRaw
-          .map((dish) =>
-            typeof dish === "string"
-              ? dish
-              : dish.dishName || dish.name || ""
-          )
-          .filter(Boolean);
+        if (Array.isArray(meal.dishes)) {
+          dishNames = meal.dishes
+            .map((dish) =>
+              typeof dish === "string"
+                ? dish
+                : dish.dishName || dish.name || ""
+            )
+            .filter(Boolean);
+        } else if (meal.mealName) {
+          dishNames = String(meal.mealName)
+            .split(",")
+            .map((s) => s.trim())
+            .filter(Boolean);
+        }
 
         if (type.includes("BREAKFAST") || type.includes("SANG")) {
           dayMenu.breakfast.push(...dishNames);
@@ -442,30 +442,10 @@ async function loadWeekMenu() {
       });
 
       map.set(key, dayMenu);
-
-      const updatedAtRaw = m.updatedAt || m.lastUpdatedAt;
-      if (updatedAtRaw) {
-        const t = new Date(updatedAtRaw);
-        if (!Number.isNaN(t.getTime())) {
-          if (!latestUpdated || t > latestUpdated) {
-            latestUpdated = t;
-          }
-        }
-      }
     });
 
     menusMap.value = map;
-
-    if (latestUpdated) {
-      const dd = String(latestUpdated.getDate()).padStart(2, "0");
-      const mm = String(latestUpdated.getMonth() + 1).padStart(2, "0");
-      const yyyy = latestUpdated.getFullYear();
-      const hh = String(latestUpdated.getHours()).padStart(2, "0");
-      const mi = String(latestUpdated.getMinutes()).padStart(2, "0");
-      menuUpdatedAt.value = `Cập nhật lúc ${hh}:${mi} ${dd}/${mm}/${yyyy}`;
-    } else {
-      menuUpdatedAt.value = "";
-    }
+    menuUpdatedAt.value = "";
   } catch (e) {
     console.error("[MenuWeekly] loadWeekMenu error", e);
     $q.notify({
@@ -496,7 +476,6 @@ function getMenuForDay(dateKey) {
 function selectChild(s) {
   if (!s || s.id === selectedChildId.value) return;
   selectedChildId.value = s.id;
-  // watcher sẽ gọi loadWeekMenu
 }
 
 function goBack() {
@@ -505,17 +484,17 @@ function goBack() {
 
 // ====== WATCHERS & MOUNT ======
 watch(
-  () => route.query.weekStart,
-  (val) => {
-    buildWeekFromParam(val);
+  () => [route.query.weekStart, route.query.weekEnd],
+  ([ws, we]) => {
+    buildWeekFromParams(ws, we);
   },
   { immediate: true }
 );
 
 watch(
-  () => [parentId.value, selectedChildId.value, weekStart.value],
-  ([pId, stuId, ws]) => {
-    if (pId && stuId && ws) {
+  () => [parentId.value, selectedChildId.value, weekStart.value, weekEnd.value],
+  ([pId, stuId, ws, we]) => {
+    if (pId && stuId && ws && we) {
       loadWeekMenu();
     }
   }

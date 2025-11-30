@@ -78,13 +78,17 @@ const routes = [
         component: () => import('pages/MenuWeeklyPage.vue'),
         meta: { requiresAuth: true },
       },
+      {
+        path: '/feedback',
+        name: 'feedback-page',
+        component: () => import('pages/FeedbackPage.vue'),
+      },
 
-      // {
-      //   path: 'features/album',
-      //   name: 'album',
-      //   component: () => import('pages/AlbumPage.vue'),
-      //   meta: { requiresAuth: true },
-      // },
+      {
+        path: '/child/:studentId',
+        name: 'child-detail',
+        component: () => import('pages/ChildDetailPage.vue'),
+      },
     ],
   },
 

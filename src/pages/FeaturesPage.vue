@@ -52,14 +52,14 @@ import { useRouter } from "vue-router";
 const router = useRouter();
 
 const features = [
-  {
-    key: "album",
-    label: "Album ảnh",
-    desc: "Khoảnh khắc mỗi ngày",
-    icon: "image",
-    ringClass: "ring-teal",
-    route: "/features/album",
-  },
+  // {
+  //   key: "album",
+  //   label: "Album ảnh",
+  //   desc: "Khoảnh khắc mỗi ngày",
+  //   icon: "image",
+  //   ringClass: "ring-teal",
+  //   route: "/features/album",
+  // },
 
   {
     key: "leave",
@@ -101,14 +101,14 @@ const features = [
     ringClass: "ring-amber",
     route: "/features/fee",
   },
-  // {
-  //   key: "activity",
-  //   label: "Hoạt động hằng ngày",
-  //   desc: "Bé chơi bé ăn",
-  //   icon: "celebration",
-  //   ringClass: "ring-purple",
-  //   route: "/menu", // mở page thực đơn
-  // },
+  {
+    key: "activity",
+    label: "Feedback",
+    desc: "Viết phản hồi cho giáo viên",
+    icon: "celebration",
+    ringClass: "ring-purple",
+    route: "/feedback", // mở page phản hồi
+  },
 ];
 
 function go(item) {
