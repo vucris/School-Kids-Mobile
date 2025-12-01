@@ -14,83 +14,64 @@
         </div>
       </div>
 
-      <q-card class="login-card">
-        <div class="login-card-bg" :style="cardBgStyle">
-          <div class="login-card-content">
-            <q-card-section class="text-center q-pb-none"> </q-card-section>
-
-            <q-card-section class="q-gutter-md q-pt-md">
-              <q-form @submit.prevent="onLogin" class="column q-gutter-md">
-                <q-input
-                  v-model="username"
-                  label="Tên đăng nhập"
-                  dense
-                  outlined
-                  clearable
-                  :rules="[(val) => !!val || 'Vui lòng nhập tên đăng nhập']"
-                >
-                  <template #prepend>
-                    <q-icon name="person" />
-                  </template>
-                </q-input>
-
-                <q-input
-                  v-model="password"
-                  label="Mật khẩu"
-                  dense
-                  outlined
-                  :type="isPwd ? 'password' : 'text'"
-                  :rules="[(val) => !!val || 'Vui lòng nhập mật khẩu']"
-                >
-                  <template #prepend>
-                    <q-icon name="lock" />
-                  </template>
-                  <template #append>
-                    <q-icon
-                      :name="isPwd ? 'visibility_off' : 'visibility'"
-                      class="cursor-pointer"
-                      @click="isPwd = !isPwd"
-                    />
-                  </template>
-                </q-input>
-
-                <div class="row items-center justify-between q-mt-xs">
-                  <q-checkbox v-model="remember" label="Lưu mật khẩu" />
-                  <q-btn
-                    flat
-                    size="sm"
-                    label="Quên mật khẩu?"
-                    class="text-primary"
-                    no-caps
-                  />
-                </div>
-
-                <q-btn
-                  label="Đăng nhập"
-                  type="submit"
-                  color="primary"
-                  class="q-mt-sm"
-                  unelevated
-                  rounded
-                  no-caps
-                  :loading="loading"
-                  :disable="loading"
-                />
-              </q-form>
-
-              <div v-if="errorMsg" class="text-negative text-caption q-mt-sm text-center">
-                {{ errorMsg }}
-              </div>
-            </q-card-section>
-
-            <q-card-section
-              class="text-center text-caption text-grey-6 q-pt-sm q-pb-none"
-            >
-              © {{ currentYear }} Health Tracking
-            </q-card-section>
+      <!-- Login Card -->
+      <div class="login-card">
+        <form @submit.prevent="onLogin" class="login-form">
+          <!-- Username -->
+          <div class="input-field">
+            <q-icon name="person_outline" size="22px" class="field-icon" />
+            <input
+              v-model="username"
+              type="text"
+              placeholder="Tên đăng nhập"
+              class="field-input"
+            />
           </div>
+
+          <!-- Password -->
+          <div class="input-field">
+            <q-icon name="lock_outline" size="22px" class="field-icon" />
+            <input
+              v-model="password"
+              :type="isPwd ? 'password' : 'text'"
+              placeholder="Mật khẩu"
+              class="field-input"
+            />
+            <q-icon
+              :name="isPwd ?  'visibility_off' : 'visibility'"
+              size="22px"
+              class="field-icon-right cursor-pointer"
+              @click="isPwd = !isPwd"
+            />
+          </div>
+
+          <!-- Remember & Forgot -->
+          <div class="form-options">
+            <label class="remember-label">
+              <input type="checkbox" v-model="remember" class="checkbox-input" />
+          
+              <span class="checkbox-text">Lưu mật khẩu</span>
+            </label>
+            <a href="#" class="forgot-link" @click.prevent>Quên mật khẩu?</a>
+          </div>
+
+          <!-- Error -->
+          <div v-if="errorMsg" class="error-box">
+            {{ errorMsg }}
+          </div>
+
+          <!-- Submit -->
+          <button type="submit" class="submit-btn" :disabled="loading">
+            <span v-if="! loading">Đăng nhập</span>
+            <q-spinner-dots v-else color="white" size="24px" />
+          </button>
+        </form>
+
+        <!-- Footer -->
+        <div class="card-footer">
+          © {{ currentYear }} Health Tracking
         </div>
-      </q-card>
+      </div>
     </div>
   </div>
 </template>
@@ -101,9 +82,7 @@ import { useQuasar } from "quasar";
 import { useRouter, useRoute } from "vue-router";
 import { useAuthStore } from "src/stores/auth";
 
-// ảnh
 import pageBg from "src/assets/bg.jpg";
-import cardBg from "src/assets/bg.jpg";
 import logoImg from "src/assets/logo-kids.png";
 
 const $q = useQuasar();
@@ -118,7 +97,7 @@ const isPwd = ref(true);
 const loading = ref(false);
 const errorMsg = ref("");
 
-const currentYear = new Date().getFullYear();
+const currentYear = new Date(). getFullYear();
 
 const pageStyle = {
   backgroundImage: `url(${pageBg})`,
@@ -127,20 +106,13 @@ const pageStyle = {
   backgroundRepeat: "no-repeat",
 };
 
-const cardBgStyle = {
-  backgroundImage: `url(${cardBg})`,
-  backgroundSize: "cover",
-  backgroundPosition: "center",
-};
-
 const logoSrc = logoImg;
 
 const onLogin = async () => {
   errorMsg.value = "";
 
-  if (!username.value || !password.value) {
-    errorMsg.value = "Vui lòng nhập tài khoản và mật khẩu";
-    $q.notify({ type: "negative", message: errorMsg.value });
+  if (! username.value || ! password.value) {
+    errorMsg. value = "Vui lòng nhập tài khoản và mật khẩu";
     return;
   }
 
@@ -157,7 +129,7 @@ const onLogin = async () => {
     });
 
     const redirect =
-      typeof route.query.redirect === "string" ? route.query.redirect : null;
+      typeof route.query.redirect === "string" ?  route.query.redirect : null;
 
     if (redirect) {
       await router.replace(redirect);
@@ -166,16 +138,14 @@ const onLogin = async () => {
     }
   } catch (err) {
     errorMsg.value =
-      err?.response?.data?.message || "Đăng nhập thất bại, vui lòng kiểm tra lại.";
-    $q.notify({ type: "negative", message: errorMsg.value });
+      err?. response?.data?.message || "Đăng nhập thất bại, vui lòng kiểm tra lại. ";
   } finally {
-    loading.value = false;
+    loading. value = false;
   }
 };
 </script>
 
 <style scoped>
-/* nền tổng thể */
 .login-page {
   min-height: 100vh;
   display: flex;
@@ -185,26 +155,23 @@ const onLogin = async () => {
   padding: 16px;
 }
 
-/* lớp phủ tối nhẹ */
 .overlay {
   position: absolute;
   inset: 0;
-  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0.25));
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.2));
 }
 
-/* container chính */
 .content-wrapper {
   position: relative;
   z-index: 1;
   width: 100%;
-  max-width: 420px;
-  gap: 12px;
+  max-width: 360px;
 }
 
-/* logo + text */
+/* Logo */
 .logo-section {
   text-align: center;
-  margin-bottom: 8px;
+  margin-bottom: 20px;
 }
 
 .logo-img {
@@ -214,60 +181,182 @@ const onLogin = async () => {
 }
 
 .app-title {
-  letter-spacing: 0.06em;
+  letter-spacing: 0.04em;
 }
 
 .app-subtitle {
   opacity: 0.9;
 }
 
-/* card login */
+/* Card */
 .login-card {
   width: 100%;
-  border-radius: 22px;
-  overflow: hidden;
-  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.35);
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 16px;
+  padding: 24px 20px 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+  animation: slideUp 0.4s ease-out;
+}
+
+/* Form */
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* Input */
+.input-field {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #fff;
+  border: 2px solid #e5e5e5;
+  border-radius: 10px;
+  padding: 12px 14px;
+  transition: border-color 0. 2s ease;
+}
+
+. input-field:focus-within {
+  border-color: #2196f3;
+}
+
+.field-icon {
+  color: #9e9e9e;
+  flex-shrink: 0;
+}
+
+.field-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  font-size: 15px;
+  color: #333;
   background: transparent;
-  animation: slideUp 0.5s ease-out;
-  margin-top: -10px;
 }
 
-.login-card-bg {
-  position: relative;
+. field-input::placeholder {
+  color: #bdbdbd;
 }
 
-/* lớp mờ trắng để form dễ đọc */
-.login-card-bg::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(
-    circle at top,
-    rgba(255, 255, 255, 0.96),
-    rgba(255, 255, 255, 0.85)
-  );
+. field-icon-right {
+  color: #9e9e9e;
+  flex-shrink: 0;
 }
 
-/* nội dung form */
-.login-card-content {
-  position: relative;
-  z-index: 1;
-  padding: 18px 18px 16px;
+.field-icon-right:hover {
+  color: #666;
 }
 
-/* avatar tròn nhỏ trong header */
-.card-avatar {
-  width: 56px;
-  height: 56px;
-  border-radius: 999px;
-  background: rgba(25, 118, 210, 0.1);
-  margin: 0 auto;
+/* Form options */
+. form-options {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 2px;
 }
 
-/* animation xuất hiện card */
+.remember-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #555;
+}
+
+. checkbox-input {
+  display: none;
+}
+
+.checkbox-custom {
+  width: 18px;
+  height: 18px;
+  border: 2px solid #2196f3;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0. 2s ease;
+}
+
+.checkbox-input:checked + .checkbox-custom {
+  background: #2196f3;
+}
+
+.checkbox-input:checked + .checkbox-custom::after {
+  content: "✓";
+  color: #fff;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+. checkbox-text {
+  user-select: none;
+}
+
+.forgot-link {
+  font-size: 14px;
+  color: #2196f3;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.forgot-link:hover {
+  text-decoration: underline;
+}
+
+/* Error */
+.error-box {
+  background: #ffebee;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 13px;
+  color: #d32f2f;
+  text-align: center;
+}
+
+/* Submit */
+.submit-btn {
+  width: 100%;
+  padding: 14px;
+  background: #2196f3;
+  color: #fff;
+  border: none;
+  border-radius: 25px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 6px;
+}
+
+.submit-btn:hover:not(:disabled) {
+  background: #1976d2;
+}
+
+.submit-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+/* Footer */
+.card-footer {
+  text-align: center;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid #eee;
+  font-size: 12px;
+  color: #999;
+}
+
+/* Animation */
 @keyframes slideUp {
   from {
-    transform: translateY(30px);
+    transform: translateY(20px);
     opacity: 0;
   }
   to {
@@ -276,13 +365,19 @@ const onLogin = async () => {
   }
 }
 
-/* responsive cho màn nhỏ */
-@media (max-width: 400px) {
+/* Responsive */
+@media (max-width: 380px) {
   .login-card {
-    border-radius: 18px;
+    padding: 20px 16px 14px;
+    border-radius: 14px;
   }
+
   .logo-img {
-    height: 68px;
+    height: 70px;
+  }
+
+  .input-field {
+    padding: 10px 12px;
   }
 }
 </style>

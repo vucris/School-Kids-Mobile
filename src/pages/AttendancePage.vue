@@ -1,135 +1,191 @@
 <template>
   <q-page class="attendance-page">
-    <div class="attendance-scroll q-pa-md q-pt-sm">
+    <!-- Header gradient đẹp -->
+    <div class="page-header">
+      <div class="header-bg"></div>
+      <div class="header-content">
+        <div class="header-icon">
+          <q-icon name="fact_check" size="28px" />
+        </div>
+        <div class="header-text">
+          <h1>Điểm danh</h1>
+          <p>Theo dõi tình hình đi học của bé</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="attendance-scroll q-pa-md">
       <!-- KHU VỰC CHỌN BÉ -->
       <section class="child-section q-mb-md">
-        <q-card class="child-card">
-          <div class="row items-center justify-between q-pa-sm">
-            <div>
-              <div class="text-caption text-grey-7 q-mb-xs">Chọn bé:</div>
-              <div class="row no-wrap scroll-x">
-                <q-chip
-                  v-for="s in children"
-                  :key="s.id"
-                  clickable
-                  @click="selectChild(s)"
-                  :color="s.id === selectedChildId ? 'primary' : 'white'"
-                  :text-color="s.id === selectedChildId ? 'white' : 'grey-8'"
-                  class="q-mr-xs q-mb-xs children-chip"
-                >
-                  {{ s.name }}
-                </q-chip>
-              </div>
-            </div>
+        <div class="section-label">
+          <q-icon name="child_care" size="16px" class="q-mr-xs" />
+          <span>Chọn bé của bạn</span>
+        </div>
 
-            <div v-if="currentChild" class="text-right">
-              <div class="text-caption text-grey-7">
-                Lớp {{ currentChild.className || "---" }}
+        <q-card class="child-card">
+          <div class="child-card-bg"></div>
+          <div class="child-card-content">
+            <div class="row items-center justify-between">
+              <div class="col">
+                <div class="row no-wrap scroll-x children-list">
+                  <div
+                    v-for="s in children"
+                    :key="s.id"
+                    class="child-chip"
+                    :class="{ active: s.id === selectedChildId }"
+                    @click="selectChild(s)"
+                  >
+                    <div class="child-chip-avatar">
+                      <q-icon name="face" size="20px" />
+                    </div>
+                    <span>{{ s.name }}</span>
+                  </div>
+                </div>
               </div>
-              <div class="text-caption text-grey-7">
-                Mã HS: {{ currentChild.studentCode || "---" }}
+
+              <div v-if="currentChild" class="child-info text-right">
+                <div class="info-badge class-badge">
+                  <q-icon name="school" size="12px" />
+                  {{ currentChild.className || "---" }}
+                </div>
+                <div class="info-badge code-badge q-mt-xs">
+                  <q-icon name="badge" size="12px" />
+                  {{ currentChild.studentCode || "---" }}
+                </div>
               </div>
             </div>
           </div>
         </q-card>
       </section>
 
-      <!-- TABS (điểm danh / đơn nghỉ) -->
-      <div class="tabs-wrapper">
-        <q-tabs
-          v-model="tab"
-          class="bg-white text-primary"
-          indicator-color="primary"
-          active-color="primary"
-          align="justify"
-          dense
-        >
-          <q-tab name="attendance" label="Điểm danh" />
-        
-        </q-tabs>
-      </div>
+      <!-- CHỌN THÁNG -->
+      <section class="month-section q-mb-md">
+        <q-card class="month-card">
+          <div class="month-card-inner">
+            <q-btn
+              flat
+              round
+              dense
+              icon="chevron_left"
+              class="month-nav-btn"
+              @click="prevMonth"
+            />
 
-      <div class="q-pa-xs q-pt-md">
-        <!-- chọn tháng -->
-        <div class="row items-center justify-between month-picker q-mb-md">
-          <q-btn flat round dense icon="chevron_left" @click="prevMonth" />
-          <div class="month-label row items-center">
-            <q-icon name="event" size="18px" class="q-mr-xs text-primary" />
-            <span>{{ monthLabel }}</span>
+            <div class="month-display">
+              <div class="month-icon">
+                <q-icon name="calendar_month" size="24px" />
+              </div>
+              <div class="month-text">
+                <span class="month-number">Tháng {{ monthIndex + 1 }}</span>
+                <span class="month-year">{{ year }}</span>
+              </div>
+            </div>
+
+            <q-btn
+              flat
+              round
+              dense
+              icon="chevron_right"
+              class="month-nav-btn"
+              @click="nextMonth"
+            />
           </div>
-          <q-btn flat round dense icon="chevron_right" @click="nextMonth" />
-        </div>
-
-        <!-- LOADING -->
-        <q-card v-if="loading" flat class="q-pa-md q-mb-md">
-          <q-inner-loading showing>
-            <q-spinner-dots size="32px" color="primary" />
-          </q-inner-loading>
         </q-card>
+      </section>
 
-        <!-- THỐNG KÊ -->
-        <div v-if="!loading" class="row q-col-gutter-sm q-mb-md">
-          <div v-for="box in summaryBoxes" :key="box.key" class="col-3">
-            <q-card class="summary-card" :class="box.class">
-              <div class="summary-number">{{ box.value }}</div>
-              <div class="summary-label">{{ box.label }}</div>
-            </q-card>
-          </div>
+      <!-- LOADING -->
+      <q-card v-if="loading" flat class="loading-card q-pa-lg q-mb-md">
+        <div class="loading-content">
+          <q-spinner-dots size="48px" color="pink-4" />
+          <p class="q-mt-md text-grey-6">Đang tải dữ liệu điểm danh...</p>
+        </div>
+      </q-card>
+
+      <!-- THỐNG KÊ TỔNG QUAN -->
+      <section v-if="!loading" class="summary-section q-mb-md">
+        <div class="section-label">
+          <q-icon name="insights" size="16px" class="q-mr-xs" />
+          <span>Tổng quan tháng này</span>
         </div>
 
-        <!-- DANH SÁCH THEO TUẦN -->
-        <div v-if="!loading" class="q-gutter-md">
-          <q-banner v-if="!weeks.length" class="bg-blue-1 text-blue-8" rounded>
-            <template #avatar>
-              <q-icon name="event_busy" />
-            </template>
-            Tháng này chưa có dữ liệu điểm danh của bé.
-          </q-banner>
+        <div class="summary-grid">
+          <div
+            v-for="box in summaryBoxes"
+            :key="box.key"
+            class="summary-item"
+            :class="box.class"
+          >
+            <div class="summary-icon">
+              <q-icon :name="box.icon" size="20px" />
+            </div>
+            <div class="summary-value">{{ box.value }}</div>
+            <div class="summary-label">{{ box.label }}</div>
+          </div>
+        </div>
+      </section>
 
-          <q-card v-for="week in weeks" :key="week.range" class="week-card">
-            <q-card-section class="q-pb-xs">
-              <div class="text-caption text-grey-7 text-center">
-                {{ week.range }}
-              </div>
-            </q-card-section>
+      <!-- DANH SÁCH THEO TUẦN -->
+      <section v-if="!loading" class="weeks-section">
+        <div class="section-label">
+          <q-icon name="date_range" size="16px" class="q-mr-xs" />
+          <span>Chi tiết từng tuần</span>
+        </div>
 
-            <q-separator />
+        <q-banner v-if="!weeks.length" class="empty-banner q-mb-md" rounded>
+          <template #avatar>
+            <div class="empty-icon">
+              <q-icon name="event_busy" size="32px" />
+            </div>
+          </template>
+          <div class="empty-text">
+            <strong>Chưa có dữ liệu</strong>
+            <p>Tháng này chưa có dữ liệu điểm danh của bé.</p>
+          </div>
+        </q-banner>
 
-            <q-card-section class="q-pt-xs q-pb-xs">
-              <div
-                v-for="day in week.days"
-                :key="week.range + day.date"
-                class="day-row row items-center justify-between"
-              >
-                <div class="text-caption text-grey-7">
-                  <span class="text-weight-medium">{{ day.weekday }}</span>
-                  <span class="q-ml-xs">{{ day.date }}</span>
+        <div v-else class="weeks-list">
+          <q-card
+            v-for="(week, weekIdx) in weeks"
+            :key="week.range"
+            class="week-card q-mb-md"
+          >
+            <div class="week-header">
+              <div class="week-number">Tuần {{ weekIdx + 1 }}</div>
+              <div class="week-range">{{ week.range }}</div>
+            </div>
+
+            <div class="week-days">
+              <div v-for="day in week.days" :key="week.range + day.date" class="day-item">
+                <div class="day-left">
+                  <div class="day-weekday">{{ day.weekday }}</div>
+                  <div class="day-date">{{ day.date }}</div>
                 </div>
 
-                <!-- màu theo type: present / excused / unexcused / undefined -->
                 <div class="day-status" :class="day.type">
-                  {{ day.label }}
+                  <q-icon :name="getStatusIcon(day.type)" size="14px" />
+                  <span>{{ day.label }}</span>
                 </div>
               </div>
-            </q-card-section>
+            </div>
           </q-card>
         </div>
+      </section>
 
-        <!-- NÚT VIẾT ĐƠN -->
-        <div class="q-mt-lg q-mb-md">
-          <q-btn
-            class="write-leave-btn full-width"
-            outline
-            rounded
-            no-caps
-            color="primary"
-            @click="writeLeave"
-          >
-            <q-icon name="edit_note" size="18px" class="q-mr-xs" />
-            Viết đơn xin nghỉ phép
-          </q-btn>
-        </div>
-      </div>
+      <!-- NÚT VIẾT ĐƠN -->
+      <section class="action-section q-mt-lg q-mb-xl">
+        <q-btn class="write-leave-btn" unelevated rounded no-caps @click="writeLeave">
+          <div class="btn-content">
+            <div class="btn-icon">
+              <q-icon name="edit_note" size="24px" />
+            </div>
+            <div class="btn-text">
+              <span class="btn-title">Viết đơn xin nghỉ phép</span>
+              <span class="btn-desc">Gửi đơn xin nghỉ cho giáo viên</span>
+            </div>
+          </div>
+          <q-icon name="chevron_right" size="20px" class="btn-arrow" />
+        </q-btn>
+      </section>
     </div>
   </q-page>
 </template>
@@ -143,20 +199,16 @@ import { useAuthStore } from "src/stores/auth";
 const $q = useQuasar();
 const auth = useAuthStore();
 
-const tab = ref("attendance");
-
-const children = ref([]); // danh sách con
-const selectedChildId = ref(null); // bé đang chọn
+const children = ref([]);
+const selectedChildId = ref(null);
 const parentId = ref(null);
 
 const loading = ref(false);
 
-// tháng / năm hiện tại
 const today = new Date();
-const monthIndex = ref(today.getMonth()); // 0-11
+const monthIndex = ref(today.getMonth());
 const year = ref(today.getFullYear());
 
-// dữ liệu cho UI
 const weeks = ref([]);
 const summary = ref({
   present: 0,
@@ -165,32 +217,36 @@ const summary = ref({
   undefined: 0,
 });
 
-// ------- COMPUTED -------
-const monthLabel = computed(() => {
-  const month = monthIndex.value + 1;
-  return `Tháng ${month}/${year.value}`;
-});
+/* ======= COMPUTED ======= */
 
-// 4 box: Đi học / Nghỉ có phép / Nghỉ không phép / Chưa điểm danh
 const summaryBoxes = computed(() => [
-  { key: "present", label: "Đi học", value: summary.value.present, class: "box-present" },
+  {
+    key: "present",
+    label: "Đi học",
+    value: summary.value.present,
+    class: "box-present",
+    icon: "check_circle",
+  },
   {
     key: "excused",
-    label: "Nghỉ có phép",
+    label: "Nghỉ phép",
     value: summary.value.excused,
     class: "box-excused",
+    icon: "event_available",
   },
   {
     key: "unexcused",
     label: "Nghỉ không phép",
     value: summary.value.unexcused,
     class: "box-unexcused",
+    icon: "cancel",
   },
   {
     key: "undefined",
     label: "Chưa điểm danh",
     value: summary.value.undefined,
     class: "box-undefined",
+    icon: "help_outline",
   },
 ]);
 
@@ -198,21 +254,31 @@ const currentChild = computed(
   () => children.value.find((c) => c.id === selectedChildId.value) || null
 );
 
-// ------- HELPER DATE -------
+/* ======= HELPERS ======= */
+
+function getStatusIcon(type) {
+  const icons = {
+    present: "check_circle",
+    excused: "event_available",
+    unexcused: "cancel",
+    undefined: "help_outline",
+  };
+  return icons[type] || "help_outline";
+}
+
 function toDMY(date) {
   const d = new Date(date);
   const dd = String(d.getDate()).padStart(2, "0");
   const mm = String(d.getMonth() + 1).padStart(2, "0");
   const yyyy = d.getFullYear();
-  return `${dd}-${mm}-${yyyy}`; // -> BE dd-MM-yyyy
+  return `${dd}-${mm}-${yyyy}`;
 }
 
 function labelDMY(date) {
   const d = new Date(date);
   const dd = String(d.getDate()).padStart(2, "0");
   const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const yyyy = d.getFullYear();
-  return `${dd}/${mm}/${yyyy}`;
+  return `${dd}/${mm}`;
 }
 
 function getMonthRange(y, mIndex) {
@@ -222,12 +288,11 @@ function getMonthRange(y, mIndex) {
 }
 
 function weekdayLabel(d) {
-  const w = d.getDay(); // 0=CN
-  const map = ["CN", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7"];
+  const w = d.getDay();
+  const map = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
   return map[w];
 }
 
-// parse chuỗi ngày BE trả về
 function parseApiDate(str) {
   if (!str) return null;
   if (/^\d{2}-\d{2}-\d{4}$/.test(str)) {
@@ -239,13 +304,6 @@ function parseApiDate(str) {
   return d;
 }
 
-/**
- * Map enum status từ BE -> label & type cho UI
- * - type = 'present' | 'excused' | 'unexcused' | 'undefined'
- * - 'LATE', 'EARLY_LEAVE' gộp chung với PRESENT thành Đi học (màu xanh)
- * - Các status dạng ABSENT_EXCUSED / EXCUSED → Nghỉ có phép
- * - ABSENT_UNEXCUSED / UNEXCUSED / ABSENT → Nghỉ không phép
- */
 function mapStatus(status) {
   const s = (status || "UNDEFINED").toUpperCase();
 
@@ -254,7 +312,7 @@ function mapStatus(status) {
   }
 
   if (["ABSENT_EXCUSED", "EXCUSED"].includes(s)) {
-    return { label: "Nghỉ có phép", type: "excused" };
+    return { label: "Nghỉ phép", type: "excused" };
   }
 
   if (["ABSENT_UNEXCUSED", "UNEXCUSED", "ABSENT"].includes(s)) {
@@ -264,7 +322,8 @@ function mapStatus(status) {
   return { label: "Chưa điểm danh", type: "undefined" };
 }
 
-// ------- LOAD PARENT + CHILDREN -------
+/* ======= LOAD DATA ======= */
+
 async function loadParentAndChildren() {
   try {
     loading.value = true;
@@ -273,12 +332,11 @@ async function loadParentAndChildren() {
     if (!username) {
       $q.notify({
         type: "warning",
-        message: "Không tìm thấy tài khoản phụ huynh hiện tại.",
+        message: "Không tìm thấy tài khoản phụ huynh.",
       });
       return;
     }
 
-    // lấy list phụ huynh
     const resParents = await api.get("/parents/all");
     const parentsApi = resParents.data || {};
     const parents = parentsApi.data || [];
@@ -287,14 +345,13 @@ async function loadParentAndChildren() {
     if (!parent) {
       $q.notify({
         type: "warning",
-        message: "Không tìm thấy thông tin phụ huynh cho tài khoản này.",
+        message: "Không tìm thấy thông tin phụ huynh.",
       });
       return;
     }
 
     parentId.value = parent.id;
 
-    // lấy danh sách con
     const resChildren = await api.get(`/parents/${parent.id}/children`);
     const childrenApi = resChildren.data || {};
     const list = childrenApi.data || [];
@@ -321,7 +378,6 @@ async function loadParentAndChildren() {
   }
 }
 
-// ------- LOAD ATTENDANCE -------
 async function loadAttendanceForCurrentMonth() {
   if (!parentId.value || !selectedChildId.value) return;
 
@@ -360,7 +416,7 @@ async function loadAttendanceForCurrentMonth() {
     console.error("[Attendance] loadAttendanceForCurrentMonth error", e);
     $q.notify({
       type: "negative",
-      message: "Không lấy được dữ liệu điểm danh của bé.",
+      message: "Không lấy được dữ liệu điểm danh.",
     });
     weeks.value = [];
     summary.value = { present: 0, excused: 0, unexcused: 0, undefined: 0 };
@@ -369,7 +425,6 @@ async function loadAttendanceForCurrentMonth() {
   }
 }
 
-// build weeks + summary
 function buildCalendarData(start, end, byDate) {
   const daysArr = [];
   let cur = new Date(start);
@@ -381,7 +436,6 @@ function buildCalendarData(start, end, byDate) {
 
   while (cur <= end) {
     const jsDay = cur.getDay();
-    // chỉ tính Thứ 2 - Thứ 6
     if (jsDay >= 1 && jsDay <= 5) {
       totalWorkDays++;
 
@@ -398,7 +452,7 @@ function buildCalendarData(start, end, byDate) {
         weekday: weekdayLabel(cur),
         date: labelDMY(cur),
         label,
-        type, // present / excused / unexcused / undefined
+        type,
       });
     }
 
@@ -414,7 +468,6 @@ function buildCalendarData(start, end, byDate) {
     undefined: undef < 0 ? 0 : undef,
   };
 
-  // group thành tuần (5 ngày)
   const weekList = [];
   let currentWeek = [];
 
@@ -436,7 +489,8 @@ function buildCalendarData(start, end, byDate) {
   weeks.value = weekList;
 }
 
-// ------- UI ACTIONS -------
+/* ======= UI ACTIONS ======= */
+
 function prevMonth() {
   if (monthIndex.value === 0) {
     monthIndex.value = 11;
@@ -460,7 +514,7 @@ function nextMonth() {
 function selectChild(s) {
   if (selectedChildId.value === s.id) return;
   selectedChildId.value = s.id;
-  loadAttendanceForCurrentMonth(); // đổi bé → load lại
+  loadAttendanceForCurrentMonth();
 }
 
 function writeLeave() {
@@ -470,7 +524,6 @@ function writeLeave() {
   });
 }
 
-// INIT
 onMounted(() => {
   if (!auth.accessToken) {
     $q.notify({
@@ -484,137 +537,531 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.attendance-page {
-  background: #f5f7fb;
-  padding-bottom: 64px;
+. attendance-page {
+  background: linear-gradient(180deg, #fff5f8 0%, #f0f4ff 50%, #fef9ff 100%);
+  min-height: 100vh;
+  padding-bottom: 80px;
 }
 
-.attendance-scroll {
-  max-width: 520px;
-  margin: 0 auto;
-}
-
-/* chọn bé */
-.child-card {
-  border-radius: 18px;
-  background: #ffffff;
-  box-shadow: 0 3px 10px rgba(15, 40, 80, 0.08);
-}
-
-.child-card .scroll-x {
-  overflow-x: auto;
-}
-
-.children-chip {
-  border-radius: 999px;
-  box-shadow: 0 2px 6px rgba(15, 40, 80, 0.15);
-}
-
-/* tabs */
-.tabs-wrapper {
-  box-shadow: 0 2px 6px rgba(15, 40, 80, 0.08);
-  border-radius: 12px;
+/* ===== HEADER ===== */
+.page-header {
+  position: relative;
+  padding: 20px 16px 24px;
   overflow: hidden;
 }
 
-/* chọn tháng */
-.month-picker {
-  background: #ffffff;
-  border-radius: 14px;
-  padding: 6px 8px;
-  box-shadow: 0 2px 6px rgba(15, 40, 80, 0.08);
+.header-bg {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, #ff6b9d 0%, #c44ce0 50%, #7b68ee 100%);
+  border-radius: 0 0 32px 32px;
 }
 
-.month-label {
+.header-bg::before {
+  content: "";
+  position: absolute;
+  top: -50%;
+  right: -20%;
+  width: 200px;
+  height: 200px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+}
+
+.header-bg::after {
+  content: "";
+  position: absolute;
+  bottom: -30%;
+  left: -10%;
+  width: 150px;
+  height: 150px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 50%;
+}
+
+.header-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.header-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  backdrop-filter: blur(8px);
+}
+
+.header-text h1 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+. header-text p {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* ===== SCROLL CONTAINER ===== */
+.attendance-scroll {
+  max-width: 480px;
+  margin: -12px auto 0;
+  position: relative;
+  z-index: 2;
+}
+
+/* ===== SECTION LABEL ===== */
+.section-label {
+  display: flex;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 10px;
+}
+
+/* ===== CHILD SECTION ===== */
+.child-card {
+  position: relative;
+  border-radius: 20px;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(236, 72, 153, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+}
+
+.child-card-bg {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at top left, #ffe4ec 0%, transparent 50%),
+    radial-gradient(circle at bottom right, #e0e7ff 0%, transparent 50%);
+  opacity: 0.7;
+}
+
+.child-card-content {
+  position: relative;
+  z-index: 1;
+  padding: 14px;
+}
+
+.children-list {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.child-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: #f8fafc;
+  border: 2px solid #e2e8f0;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
   font-size: 13px;
   font-weight: 500;
-  color: #374151;
+  color: #64748b;
 }
 
-/* thống kê */
-.summary-card {
-  border-radius: 16px;
-  text-align: center;
-  padding: 6px 4px;
+.child-chip:hover {
+  border-color: #f472b6;
+  background: #fdf2f8;
+}
+
+. child-chip.active {
+  background: linear-gradient(135deg, #ec4899, #a855f7);
+  border-color: transparent;
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(236, 72, 153, 0 3);
+}
+
+. child-chip-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.child-chip. active .child-chip-avatar {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+. child-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+. info-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 999px;
   font-size: 11px;
-  box-shadow: 0 2px 6px rgba(15, 40, 80, 0.06);
-  background: #ffffff;
+  font-weight: 600;
 }
 
-.summary-number {
-  font-size: 15px;
+.class-badge {
+  background: linear-gradient(135deg, #fce7f3, #fdf4ff);
+  color: #be185d;
+}
+
+. code-badge {
+  background: linear-gradient(135deg, #e0e7ff, #ede9fe);
+  color: #6366f1;
+}
+
+/* ===== MONTH SECTION ===== */
+.month-card {
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 4px 16px rgba(99, 102, 241, 0 1);
+  overflow: hidden;
+}
+
+.month-card-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 8px;
+}
+
+.month-nav-btn {
+  width: 40px;
+  height: 40px;
+  color: #a855f7;
+}
+
+.month-display {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.month-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #fce7f3, #e0e7ff);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #a855f7;
+}
+
+.month-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.month-number {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.month-year {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+/* ===== LOADING ===== */
+.loading-card {
+  border-radius: 20px;
+  background: #fff;
+}
+
+.loading-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
+}
+
+/* ===== SUMMARY SECTION ===== */
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+
+.summary-item {
+  background: #fff;
+  border-radius: 16px;
+  padding: 14px 8px;
+  text-align: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  transition: transform 0.2s ease;
+}
+
+.summary-item:active {
+  transform: scale(0.97);
+}
+
+. summary-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 8px;
+}
+
+.summary-value {
+  font-size: 20px;
   font-weight: 700;
 }
 
 .summary-label {
-  margin-top: 2px;
+  font-size: 10px;
   color: #6b7280;
+  margin-top: 4px;
 }
 
 /* màu box */
-.box-present .summary-number {
-  color: #16a34a;
+.box-present . summary-icon {
+  background: linear-gradient(135deg, #d1fae5, #a7f3d0);
+  color: #059669;
 }
-.box-excused .summary-number {
-  color: #f59e0b;
+.box-present .summary-value {
+  color: #059669;
 }
-.box-unexcused .summary-number {
+
+.box-excused .summary-icon {
+  background: linear-gradient(135deg, #fef3c7, #fde68a);
+  color: #d97706;
+}
+.box-excused .summary-value {
+  color: #d97706;
+}
+
+.box-unexcused .summary-icon {
+  background: linear-gradient(135deg, #fee2e2, #fecaca);
   color: #dc2626;
 }
-.box-undefined .summary-number {
-  color: #4b5563;
+. box-unexcused .summary-value {
+  color: #dc2626;
 }
 
-/* card theo tuần */
-.week-card {
-  border-radius: 18px;
-  background: #ffffff;
-  box-shadow: 0 3px 10px rgba(15, 40, 80, 0.08);
+. box-undefined .summary-icon {
+  background: linear-gradient(135deg, #f1f5f9, #e2e8f0);
+  color: #64748b;
+}
+.box-undefined .summary-value {
+  color: #64748b;
 }
 
-/* từng dòng ngày */
-.day-row {
-  padding: 6px 4px;
-  border-radius: 10px;
+/* ===== WEEKS SECTION ===== */
+.empty-banner {
+  background: linear-gradient(135deg, #fef3c7, #fef9c3);
+  border: 1px solid #fde68a;
+}
+
+.empty-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: #fef08a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ca8a04;
+}
+
+.empty-text strong {
+  color: #92400e;
+  font-size: 14px;
+}
+
+. empty-text p {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #a16207;
+}
+
+. week-card {
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+}
+
+.week-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, #fdf4ff, #ede9fe);
+}
+
+.week-number {
+  font-size: 13px;
+  font-weight: 700;
+  color: #7c3aed;
+}
+
+.week-range {
+  font-size: 12px;
+  color: #8b5cf6;
+}
+
+.week-days {
+  padding: 8px 12px;
+}
+
+.day-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 8px;
+  border-radius: 12px;
   margin-bottom: 4px;
+  transition: background 0.2s ease;
 }
 
-.day-row:last-child {
+.day-item:hover {
+  background: #f8fafc;
+}
+
+.day-item:last-child {
   margin-bottom: 0;
 }
 
+.day-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.day-weekday {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #e0e7ff, #c7d2fe);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: #4f46e5;
+}
+
+.day-date {
+  font-size: 13px;
+  color: #475569;
+}
+
 .day-status {
-  font-size: 12px;
-  font-weight: 600;
-  padding: 3px 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
   border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
 }
 
-/* màu trạng thái: Đi học xanh, nghỉ phép vàng, nghỉ không phép đỏ */
 .day-status.present {
-  background: #e3f9e5;
-  color: #15803d;
+  background: linear-gradient(135deg, #d1fae5, #a7f3d0);
+  color: #047857;
 }
 
-.day-status.excused {
-  background: #fff7e6;
+.day-status. excused {
+  background: linear-gradient(135deg, #fef3c7, #fde68a);
   color: #b45309;
 }
 
-.day-status.unexcused {
-  background: #fee2e2;
+.day-status. unexcused {
+  background: linear-gradient(135deg, #fee2e2, #fecaca);
   color: #b91c1c;
 }
 
 .day-status.undefined {
-  background: #e5e7eb;
-  color: #4b5563;
+  background: linear-gradient(135deg, #f1f5f9, #e2e8f0);
+  color: #64748b;
 }
 
-/* nút viết đơn */
+/* ===== ACTION BUTTON ===== */
 .write-leave-btn {
-  border-style: dashed;
-  border-width: 1.5px;
-  background: #f9fafb;
+  width: 100%;
+  padding: 16px 20px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, #ec4899, #a855f7);
+  color: #fff;
+  box-shadow: 0 8px 24px rgba(236, 72, 153, 0 3);
+}
+
+.btn-content {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex: 1;
+}
+
+.btn-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+. btn-title {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.btn-desc {
+  font-size: 11px;
+  opacity: 0.85;
+}
+
+. btn-arrow {
+  opacity: 0.7;
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 380px) {
+  .summary-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .summary-item {
+    padding: 12px 6px;
+  }
+
+  .summary-value {
+    font-size: 18px;
+  }
 }
 </style>

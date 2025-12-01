@@ -1,186 +1,234 @@
 <template>
   <q-page class="feedback-page">
-    <div class="q-pa-md q-pt-sm feedback-scroll">
-      <!-- HEADER -->
-      <div class="row items-center q-mb-md">
-        <div class="col-auto">
-          <q-btn flat round dense icon="arrow_back" @click="goBack" />
-        </div>
-        <div class="col text-center q-pr-md">
-          <div class="text-subtitle1 text-weight-semibold">Hòm thư góp ý</div>
-          <div class="text-caption text-grey-7">
-            Gửi phản hồi tới giáo viên / nhà trường
+    <!-- HEADER GRADIENT -->
+    <div class="page-header">
+      <div class="header-bg"></div>
+      <div class="header-content">
+        <q-btn
+          flat
+          round
+          dense
+          icon="arrow_back"
+          class="header-back-btn"
+          @click="goBack"
+        />
+        <div class="header-info">
+          <div class="header-icon">
+            <q-icon name="mail_outline" size="28px" />
+          </div>
+          <div class="header-text">
+            <h1>Hòm thư góp ý</h1>
+            <p>Gửi phản hồi tới giáo viên & nhà trường</p>
           </div>
         </div>
-        <div class="col-auto">
-          <q-avatar size="36px">
-            <img :src="avatarUrl" alt="avatar" />
-          </q-avatar>
-        </div>
+        <q-avatar size="40px" class="header-avatar">
+          <img :src="avatarUrl" alt="avatar" />
+        </q-avatar>
       </div>
+    </div>
 
+    <div class="feedback-scroll q-pa-md">
       <!-- CHỌN BÉ -->
-      <q-card flat bordered class="q-mb-md child-card" v-if="children.length">
-        <q-card-section class="q-pb-sm">
-          <div class="text-caption text-grey-7 q-mb-xs">Chọn bé cần gửi phản hồi</div>
-          <div class="row no-wrap scroll-x">
-            <q-chip
-              v-for="s in children"
-              :key="s.id"
-              clickable
-              @click="selectChild(s)"
-              :color="s.id === selectedChildId ? 'primary' : 'white'"
-              :text-color="s.id === selectedChildId ? 'white' : 'grey-8'"
-              class="q-mr-xs q-mb-xs children-chip"
-            >
-              {{ s.name }}
-            </q-chip>
-          </div>
+      <section v-if="children.length" class="child-section q-mb-md">
+        <div class="section-label">
+          <q-icon name="child_care" size="16px" class="q-mr-xs" />
+          <span>Chọn bé cần gửi phản hồi</span>
+        </div>
 
-          <div v-if="currentChild" class="text-caption text-grey-7 q-mt-xs">
-            Lớp {{ currentChild.className }} • Mã HS:
-            <span class="text-weight-medium">{{ currentChild.studentCode }}</span>
+        <q-card class="child-card">
+          <div class="child-card-bg"></div>
+          <div class="child-card-content">
+            <div class="children-list">
+              <div
+                v-for="s in children"
+                :key="s.id"
+                class="child-chip"
+                :class="{ active: s.id === selectedChildId }"
+                @click="selectChild(s)"
+              >
+                <div class="child-chip-avatar">
+                  <q-icon name="face" size="18px" />
+                </div>
+                <span>{{ s.name }}</span>
+              </div>
+            </div>
+
+            <div v-if="currentChild" class="child-info q-mt-sm">
+              <div class="info-badge class-badge">
+                <q-icon name="school" size="12px" />
+                {{ currentChild.className || "---" }}
+              </div>
+              <div class="info-badge code-badge">
+                <q-icon name="badge" size="12px" />
+                {{ currentChild.studentCode || "---" }}
+              </div>
+            </div>
           </div>
-        </q-card-section>
-      </q-card>
+        </q-card>
+      </section>
 
       <!-- CHƯA CÓ CON -->
-      <q-banner v-else rounded class="bg-blue-1 text-blue-8 q-mb-md">
+      <q-banner v-else class="empty-child-banner q-mb-md" rounded>
         <template #avatar>
-          <q-icon name="child_care" />
+          <div class="empty-icon">
+            <q-icon name="child_care" size="28px" />
+          </div>
         </template>
-        Chưa tìm thấy thông tin học sinh gắn với tài khoản phụ huynh.
+        <div class="empty-text">
+          <strong>Chưa có thông tin</strong>
+          <p>Chưa tìm thấy học sinh gắn với tài khoản phụ huynh.</p>
+        </div>
       </q-banner>
 
       <!-- FORM GỬI PHẢN HỒI -->
-      <q-form
-        ref="feedbackFormRef"
-        @submit.prevent="submitFeedback"
-        class="feedback-form"
-      >
-        <q-card class="feedback-card">
-          <q-card-section class="q-pt-sm">
-            <!-- TÊN PHỤ HUYNH -->
-            <q-input
-              v-model="form.parentName"
-              label="Tên phụ huynh"
-              dense
-              readonly
-              standout="bg-grey-2 text-grey-8"
-              class="q-mb-sm"
-            >
-              <template #prepend>
-                <q-icon name="person" />
-              </template>
-            </q-input>
-
-            <!-- NGÀY & GIỜ (ĐÓNG BĂNG) -->
-            <div class="row q-col-gutter-sm q-mb-sm">
-              <div class="col-6">
-                <q-input v-model="dateLabel" label="Ngày phản hồi" dense readonly disable>
-                  <template #prepend>
-                    <q-icon name="event" />
-                  </template>
-                </q-input>
-              </div>
-              <div class="col-6">
-                <q-input v-model="formTime" label="Giờ" dense readonly disable>
-                  <template #prepend>
-                    <q-icon name="schedule" />
-                  </template>
-                </q-input>
-              </div>
-            </div>
-
-            <!-- NỘI DUNG -->
-            <q-input
-              v-model="form.content"
-              type="textarea"
-              label="Nội dung phản hồi"
-              autogrow
-              :counter="500"
-              :maxlength="500"
-              lazy-rules="ondemand"
-              :rules="[
-                (val) => (!!val && val.trim().length > 0) || 'Vui lòng nhập nội dung',
-                (val) => !val || val.length <= 500 || 'Tối đa 500 ký tự',
-              ]"
-            >
-              <template #prepend>
-                <q-icon name="chat" />
-              </template>
-            </q-input>
-
-            <div class="text-caption text-grey-6 q-mt-xs">
-              Hệ thống tự ghi lại ngày &amp; giờ gửi phản hồi. Bạn hãy chia sẻ góp ý, thắc
-              mắc, hoặc thông tin cần trao đổi với giáo viên.
-            </div>
-          </q-card-section>
-
-          <q-card-actions align="right" class="q-pa-md">
-            <q-btn type="submit" color="primary" unelevated no-caps :loading="submitting">
-              Gửi phản hồi
-            </q-btn>
-          </q-card-actions>
-        </q-card>
-      </q-form>
-
-      <!-- LỊCH SỬ GÓP Ý -->
-      <section class="q-mt-lg">
-        <div class="row items-center justify-between q-mb-sm">
-          <div class="text-subtitle2 text-weight-medium">Lịch sử góp ý</div>
-          <q-btn flat dense size="sm" icon="refresh" @click="loadFeedbackHistory" />
+      <section class="form-section q-mb-lg">
+        <div class="section-label">
+          <q-icon name="edit_note" size="16px" class="q-mr-xs" />
+          <span>Viết góp ý</span>
         </div>
 
-        <q-card v-if="historyLoading" flat class="q-pa-md">
-          <q-inner-loading showing>
-            <q-spinner-dots size="28px" color="primary" />
-          </q-inner-loading>
+        <q-form ref="feedbackFormRef" @submit.prevent="submitFeedback">
+          <q-card class="feedback-form-card">
+            <!-- Thông tin người gửi -->
+            <div class="sender-info">
+              <div class="sender-avatar">
+                <q-icon name="person" size="24px" />
+              </div>
+              <div class="sender-details">
+                <div class="sender-name">{{ form.parentName || "Phụ huynh" }}</div>
+                <div class="sender-time">
+                  <q-icon name="schedule" size="12px" />
+                  {{ dateLabel }} • {{ formTime }}
+                </div>
+              </div>
+            </div>
+
+            <!-- Nội dung góp ý -->
+            <div class="form-content">
+              <q-input
+                v-model="form.content"
+                type="textarea"
+                placeholder="Nhập nội dung góp ý, phản hồi hoặc thắc mắc của bạn..."
+                autogrow
+                :counter="500"
+                :maxlength="500"
+                borderless
+                class="content-input"
+                lazy-rules="ondemand"
+                :rules="[
+                  (val) => (!!val && val.trim().length > 0) || 'Vui lòng nhập nội dung',
+                  (val) => !val || val.length <= 500 || 'Tối đa 500 ký tự',
+                ]"
+              />
+            </div>
+
+            <!-- Gợi ý -->
+            <div class="form-hints">
+              <div class="hint-item">
+                <q-icon name="lightbulb" size="14px" />
+                <span>Chia sẻ góp ý về hoạt động học tập của bé</span>
+              </div>
+              <div class="hint-item">
+                <q-icon name="help_outline" size="14px" />
+                <span>Đặt câu hỏi cho giáo viên chủ nhiệm</span>
+              </div>
+              <div class="hint-item">
+                <q-icon name="favorite" size="14px" />
+                <span>Gửi lời cảm ơn đến nhà trường</span>
+              </div>
+            </div>
+
+            <!-- Nút gửi -->
+            <div class="form-actions">
+              <q-btn
+                type="submit"
+                unelevated
+                rounded
+                no-caps
+                class="submit-btn"
+                :loading="submitting"
+                :disable="!form.content?.trim()"
+              >
+                <q-icon name="send" size="18px" class="q-mr-sm" />
+                Gửi phản hồi
+              </q-btn>
+            </div>
+          </q-card>
+        </q-form>
+      </section>
+
+      <!-- LỊCH SỬ GÓP Ý -->
+      <section class="history-section">
+        <div class="section-header">
+          <div class="section-label">
+            <q-icon name="history" size="16px" class="q-mr-xs" />
+            <span>Lịch sử góp ý</span>
+          </div>
+          <q-btn
+            flat
+            dense
+            round
+            icon="refresh"
+            size="sm"
+            class="refresh-btn"
+            @click="loadFeedbackHistory"
+          />
+        </div>
+
+        <!-- Loading -->
+        <q-card v-if="historyLoading" flat class="loading-card q-pa-lg">
+          <div class="loading-content">
+            <q-spinner-dots size="40px" color="pink-4" />
+            <p class="q-mt-md text-grey-6">Đang tải lịch sử...</p>
+          </div>
         </q-card>
 
-        <q-banner
-          v-else-if="!feedbackHistory.length"
-          class="bg-grey-2 text-grey-8"
-          rounded
-        >
-          <template #avatar>
-            <q-icon name="inbox" />
-          </template>
-          Bạn chưa có góp ý nào được ghi nhận.
-        </q-banner>
+        <!-- Empty -->
+        <q-card v-else-if="!feedbackHistory.length" class="empty-history-card">
+          <div class="empty-history-content">
+            <div class="empty-history-icon">
+              <q-icon name="inbox" size="48px" />
+            </div>
+            <div class="empty-history-text">
+              <strong>Chưa có góp ý nào</strong>
+              <p>Hãy gửi góp ý đầu tiên cho giáo viên nhé!</p>
+            </div>
+          </div>
+        </q-card>
 
-        <div v-else class="column q-gutter-sm q-mb-md">
-          <q-card
-            v-for="fb in feedbackHistory"
-            :key="fb.id"
-            flat
-            bordered
-            class="feedback-history-card"
-          >
-            <q-card-section class="q-pb-xs">
-              <div class="row items-center justify-between q-mb-xs">
-                <div class="text-body2 text-weight-medium">
-                  {{ fb.studentName }} • {{ fb.className }}
+        <!-- Danh sách -->
+        <div v-else class="history-list">
+          <q-card v-for="fb in feedbackHistory" :key="fb.id" class="history-item">
+            <div class="history-header">
+              <div class="history-child">
+                <q-avatar size="32px" class="history-avatar">
+                  <q-icon name="face" size="20px" />
+                </q-avatar>
+                <div class="history-child-info">
+                  <div class="history-child-name">{{ fb.studentName }}</div>
+                  <div class="history-child-class">{{ fb.className }}</div>
                 </div>
-                <q-chip
-                  dense
-                  square
-                  :color="statusColor(fb.status)"
-                  text-color="white"
-                  class="text-caption"
-                >
-                  {{ statusLabel(fb.status) }}
-                </q-chip>
               </div>
+              <q-badge
+                :color="statusColor(fb.status)"
+                text-color="white"
+                class="status-badge"
+              >
+                <q-icon :name="statusIcon(fb.status)" size="12px" class="q-mr-xs" />
+                {{ statusLabel(fb.status) }}
+              </q-badge>
+            </div>
 
-              <div class="text-caption text-grey-6 q-mb-xs">
+            <div class="history-content">
+              {{ fb.content }}
+            </div>
+
+            <div class="history-footer">
+              <div class="history-time">
+                <q-icon name="schedule" size="12px" />
                 {{ formatHistoryDateTime(fb.messageDate, fb.messageTime) }}
               </div>
-
-              <div class="text-body2">
-                {{ fb.content }}
-              </div>
-            </q-card-section>
+            </div>
           </q-card>
         </div>
       </section>
@@ -205,7 +253,7 @@ const avatarUrl = avatarDefault;
 const loading = ref(false);
 const submitting = ref(false);
 
-const feedbackFormRef = ref(null); // <-- ref cho QForm
+const feedbackFormRef = ref(null);
 
 const parentId = ref(null);
 const children = ref([]);
@@ -217,20 +265,20 @@ const form = ref({
   content: "",
 });
 
-const formDate = ref(""); // 'YYYY-MM-DD'
-const formTime = ref(""); // 'HH:mm'
+const formDate = ref("");
+const formTime = ref("");
 const dateLabel = ref("");
 
-// Lịch sử feedback
 const historyLoading = ref(false);
-const feedbackHistory = ref([]); // list đang hiển thị
-const allFeedbackHistory = ref([]); // list đầy đủ từ API
+const feedbackHistory = ref([]);
+const allFeedbackHistory = ref([]);
 
 const currentChild = computed(
   () => children.value.find((c) => c.id === selectedChildId.value) || null
 );
 
-// ====== HELPERS NGÀY/GIỜ ======
+/* ======= HELPERS ======= */
+
 function formatDateLabel(isoDate) {
   if (!isoDate) return "";
   const d = new Date(isoDate);
@@ -254,7 +302,6 @@ function initDefaultDateTime() {
   dateLabel.value = formatDateLabel(formDate.value);
 }
 
-// Định dạng ngày giờ hiển thị trong lịch sử
 function formatHistoryDateTime(dateStr, timeStr) {
   if (!dateStr) return "";
   const d = new Date(dateStr);
@@ -265,10 +312,9 @@ function formatHistoryDateTime(dateStr, timeStr) {
   const time =
     timeStr ||
     `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-  return `${dd}/${mm}/${yyyy} • ${time}`;
+  return `${dd}/${mm}/${yyyy} lúc ${time}`;
 }
 
-// Chuẩn hóa status
 function normalizeStatus(status) {
   return (status || "PENDING").toUpperCase();
 }
@@ -283,13 +329,22 @@ function statusLabel(status) {
 
 function statusColor(status) {
   const s = normalizeStatus(status);
-  if (s === "PENDING") return "orange";
-  if (s === "IN_PROGRESS" || s === "PROCESSING") return "primary";
-  if (s === "RESOLVED" || s === "DONE") return "positive";
-  return "grey-5";
+  if (s === "PENDING") return "amber-7";
+  if (s === "IN_PROGRESS" || s === "PROCESSING") return "blue-6";
+  if (s === "RESOLVED" || s === "DONE") return "green-6";
+  return "grey-6";
 }
 
-// ====== LOAD PARENT + CHILDREN ======
+function statusIcon(status) {
+  const s = normalizeStatus(status);
+  if (s === "PENDING") return "hourglass_empty";
+  if (s === "IN_PROGRESS" || s === "PROCESSING") return "autorenew";
+  if (s === "RESOLVED" || s === "DONE") return "check_circle";
+  return "help_outline";
+}
+
+/* ======= LOAD DATA ======= */
+
 async function loadParentAndChildren() {
   try {
     loading.value = true;
@@ -298,7 +353,7 @@ async function loadParentAndChildren() {
     if (!username) {
       $q.notify({
         type: "warning",
-        message: "Không tìm thấy tài khoản phụ huynh hiện tại.",
+        message: "Không tìm thấy tài khoản phụ huynh.",
       });
       return;
     }
@@ -345,17 +400,14 @@ async function loadParentAndChildren() {
   }
 }
 
-// CHỌN BÉ
 function selectChild(s) {
   if (!s) return;
   selectedChildId.value = s.id;
   form.value.studentCode = s.studentCode;
 
-  // filter tạm theo bé (chỉ hiển thị góp ý của bé đó)
   feedbackHistory.value = allFeedbackHistory.value.filter((fb) => fb.studentId === s.id);
 }
 
-// ====== LỊCH SỬ GÓP Ý ======
 async function loadFeedbackHistory() {
   try {
     historyLoading.value = true;
@@ -374,7 +426,6 @@ async function loadFeedbackHistory() {
         new Date(b.messageDate || b.createdAt) - new Date(a.messageDate || a.createdAt)
     );
 
-    // lưu list đầy đủ + list hiển thị
     allFeedbackHistory.value = list;
     if (selectedChildId.value) {
       feedbackHistory.value = list.filter((fb) => fb.studentId === selectedChildId.value);
@@ -383,23 +434,16 @@ async function loadFeedbackHistory() {
     }
   } catch (e) {
     console.error("[Feedback] loadFeedbackHistory error", e);
-    const msg =
-      e?.response?.data?.message ||
-      e?.response?.data?.error ||
-      e.message ||
-      "Không tải được lịch sử góp ý.";
     $q.notify({
       type: "negative",
-      message: msg,
+      message: e?.response?.data?.message || "Không tải được lịch sử góp ý.",
     });
   } finally {
     historyLoading.value = false;
   }
 }
 
-// ====== SUBMIT ======
 async function submitFeedback() {
-  // chưa chọn bé
   if (!form.value.studentCode) {
     $q.notify({
       type: "warning",
@@ -408,12 +452,9 @@ async function submitFeedback() {
     return;
   }
 
-  // validate các field theo rules của QForm / QInput
   if (feedbackFormRef.value) {
     const ok = await feedbackFormRef.value.validate();
-    if (!ok) {
-      return; // có lỗi, QInput sẽ tự hiển thị "Vui lòng nhập nội dung"
-    }
+    if (!ok) return;
   }
 
   try {
@@ -438,10 +479,10 @@ async function submitFeedback() {
 
     $q.notify({
       type: "positive",
-      message: "Gửi phản hồi thành công. Cảm ơn bạn đã góp ý!",
+      message: "Gửi phản hồi thành công!  Cảm ơn bạn đã góp ý.",
+      icon: "check_circle",
     });
 
-    // reset validate + clear nội dung nhưng KHÔNG hiện lỗi
     if (feedbackFormRef.value) {
       feedbackFormRef.value.resetValidation();
     }
@@ -450,21 +491,15 @@ async function submitFeedback() {
     await loadFeedbackHistory();
   } catch (e) {
     console.error("[Feedback] submitFeedback error", e);
-    const msg =
-      e?.response?.data?.message ||
-      e?.response?.data?.error ||
-      e.message ||
-      "Gửi phản hồi thất bại.";
     $q.notify({
       type: "negative",
-      message: msg,
+      message: e?.response?.data?.message || "Gửi phản hồi thất bại.",
     });
   } finally {
     submitting.value = false;
   }
 }
 
-// BACK
 function goBack() {
   router.back();
 }
@@ -485,37 +520,469 @@ onMounted(async () => {
 
 <style scoped>
 .feedback-page {
-  background: #f5f7fb;
-  padding-bottom: 64px;
+  background: linear-gradient(180deg, #fff5f8 0%, #fef0f5 50%, #f8fafc 100%);
+  min-height: 100vh;
+  padding-bottom: 80px;
 }
 
+/* ===== HEADER ===== */
+.page-header {
+  position: relative;
+  padding: 16px;
+  overflow: hidden;
+}
+
+.header-bg {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, #ec4899 0%, #f472b6 50%, #fb7185 100%);
+  border-radius: 0 0 32px 32px;
+}
+
+.header-bg::before {
+  content: "";
+  position: absolute;
+  top: -40%;
+  right: -15%;
+  width: 160px;
+  height: 160px;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 50%;
+}
+
+.header-bg::after {
+  content: "";
+  position: absolute;
+  bottom: -20%;
+  left: -8%;
+  width: 100px;
+  height: 100px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 50%;
+}
+
+.header-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.header-back-btn {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.header-info {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.header-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  backdrop-filter: blur(8px);
+}
+
+.header-text h1 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.header-text p {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+. header-avatar {
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* ===== SCROLL CONTAINER ===== */
 .feedback-scroll {
-  max-width: 520px;
-  margin: 0 auto;
+  max-width: 480px;
+  margin: -8px auto 0;
+  position: relative;
+  z-index: 2;
 }
 
+/* ===== SECTION LABEL ===== */
+.section-label {
+  display: flex;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 10px;
+}
+
+/* ===== CHILD SECTION ===== */
 .child-card {
-  border-radius: 18px;
-  background: #ffffff;
-}
-
-.children-chip {
-  border-radius: 999px;
-  box-shadow: 0 2px 6px rgba(15, 40, 80, 0.15);
-}
-
-.feedback-card {
+  position: relative;
   border-radius: 20px;
-  background: #ffffff;
-  box-shadow: 0 6px 14px rgba(15, 40, 80, 0.12);
+  overflow: hidden;
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(236, 72, 153, 0.12);
 }
 
-.feedback-form {
-  margin-bottom: 24px;
+.child-card-bg {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at top left, #fce7f3 0%, transparent 50%),
+    radial-gradient(circle at bottom right, #fdf2f8 0%, transparent 50%);
+  opacity: 0 8;
 }
 
-.feedback-history-card {
-  border-radius: 16px;
-  background: #ffffff;
+.child-card-content {
+  position: relative;
+  z-index: 1;
+  padding: 14px;
+}
+
+.children-list {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.child-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: #f8fafc;
+  border: 2px solid #e2e8f0;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 500;
+  color: #64748b;
+}
+
+.child-chip:hover {
+  border-color: #f9a8d4;
+  background: #fdf2f8;
+}
+
+.child-chip.active {
+  background: linear-gradient(135deg, #ec4899, #f472b6);
+  border-color: transparent;
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(236, 72, 153, 0 3);
+}
+
+. child-chip-avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.child-info {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.info-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.class-badge {
+  background: linear-gradient(135deg, #fce7f3, #fdf4ff);
+  color: #be185d;
+}
+
+.code-badge {
+  background: linear-gradient(135deg, #e0e7ff, #ede9fe);
+  color: #6366f1;
+}
+
+/* ===== EMPTY CHILD ===== */
+. empty-child-banner {
+  background: linear-gradient(135deg, #fef3c7, #fef9c3);
+  border: 1px solid #fde68a;
+}
+
+.empty-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: #fef08a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ca8a04;
+}
+
+. empty-text strong {
+  color: #92400e;
+  font-size: 14px;
+}
+
+. empty-text p {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #a16207;
+}
+
+/* ===== FEEDBACK FORM ===== */
+.feedback-form-card {
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+}
+
+.sender-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  background: linear-gradient(135deg, #fdf2f8, #fce7f3);
+}
+
+.sender-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #ec4899, #f472b6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+}
+
+.sender-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.sender-time {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+.form-content {
+  padding: 16px;
+}
+
+.content-input {
+  font-size: 14px;
+}
+
+.content-input :deep(.q-field__control) {
+  min-height: 120px;
+}
+
+.form-hints {
+  padding: 0 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hint-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+.hint-item . q-icon {
+  color: #f9a8d4;
+}
+
+.form-actions {
+  padding: 0 16px 16px;
+}
+
+.submit-btn {
+  width: 100%;
+  padding: 14px 24px;
+  background: linear-gradient(135deg, #ec4899, #f472b6);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: 0 6px 20px rgba(236, 72, 153, 0 3);
+}
+
+.submit-btn:disabled {
+  opacity: 0.6;
+}
+
+/* ===== HISTORY SECTION ===== */
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.refresh-btn {
+  color: #ec4899;
+}
+
+.loading-card {
+  border-radius: 20px;
+  background: #fff;
+}
+
+.loading-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
+}
+
+.empty-history-card {
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+}
+
+. empty-history-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 32px 20px;
+  text-align: center;
+}
+
+. empty-history-icon {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #fce7f3, #fdf2f8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #f9a8d4;
+  margin-bottom: 16px;
+}
+
+.empty-history-text strong {
+  font-size: 15px;
+  color: #374151;
+}
+
+.empty-history-text p {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: #9ca3af;
+}
+
+. history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.history-item {
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+}
+
+.history-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  background: linear-gradient(135deg, #fdf2f8, #fce7f3);
+}
+
+.history-child {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.history-avatar {
+  background: linear-gradient(135deg, #ec4899, #f472b6);
+  color: #fff;
+}
+
+.history-child-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.history-child-class {
+  font-size: 11px;
+  color: #64748b;
+}
+
+.status-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+
+. history-content {
+  padding: 14px 16px;
+  font-size: 13px;
+  color: #374151;
+  line-height: 1.5;
+}
+
+. history-footer {
+  padding: 0 16px 14px;
+}
+
+.history-time {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #9ca3af;
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 380px) {
+  .header-text h1 {
+    font-size: 18px;
+  }
+
+  .header-icon {
+    width: 42px;
+    height: 42px;
+  }
 }
 </style>

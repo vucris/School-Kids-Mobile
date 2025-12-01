@@ -89,6 +89,12 @@ const routes = [
         name: 'child-detail',
         component: () => import('pages/ChildDetailPage.vue'),
       },
+
+      {
+        path: '/fee/student',
+        name: 'fee-student',
+        component: () => import('pages/FeePage.vue'),
+      },
     ],
   },
 
