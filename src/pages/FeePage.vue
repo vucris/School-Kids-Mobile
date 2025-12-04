@@ -322,7 +322,7 @@ const selectedStudentId = ref(null);
 const children = computed(() => {
   const map = new Map();
   fees.value.forEach((f) => {
-    if (! map.has(f.studentId)) {
+    if (!map.has(f.studentId)) {
       map.set(f.studentId, {
         id: f.studentId,
         name: f.studentName,
@@ -331,11 +331,11 @@ const children = computed(() => {
       });
     }
   });
-  return Array.from(map. values());
+  return Array.from(map.values());
 });
 
-const currentChild = computed(() =>
-  children.value.find((c) => c. id === selectedStudentId.value) || null
+const currentChild = computed(
+  () => children.value.find((c) => c.id === selectedStudentId.value) || null
 );
 
 // ====== LỌC THEO TRẠNG THÁI ======
@@ -352,18 +352,22 @@ const statusOptions = [
 
 const filteredFees = computed(() =>
   fees.value.filter((f) => {
-    if (selectedStudentId.value && f.studentId !== selectedStudentId. value) return false;
+    if (selectedStudentId.value && f.studentId !== selectedStudentId.value) return false;
     if (statusFilter.value !== "ALL" && f.status !== statusFilter.value) return false;
     return true;
   })
 );
 
 function getStatusCount(status) {
-  if (status === "ALL") return fees.value.filter((f) =>
-    ! selectedStudentId.value || f.studentId === selectedStudentId.value
-  ). length;
-  return fees.value.filter((f) =>
-    f.status === status && (! selectedStudentId. value || f.studentId === selectedStudentId.value)
+  if (status === "ALL") {
+    return fees.value.filter(
+      (f) => !selectedStudentId.value || f.studentId === selectedStudentId.value
+    ).length;
+  }
+  return fees.value.filter(
+    (f) =>
+      f.status === status &&
+      (!selectedStudentId.value || f.studentId === selectedStudentId.value)
   ).length;
 }
 
@@ -373,19 +377,19 @@ const totalAmount = computed(() =>
 );
 
 const paidAmount = computed(() =>
-  filteredFees.value. reduce((sum, f) => sum + (f.paidAmount || 0), 0)
+  filteredFees.value.reduce((sum, f) => sum + (f.paidAmount || 0), 0)
 );
 
 const remainingAmount = computed(() =>
-  filteredFees. value.reduce((sum, f) => sum + (f.remainingAmount || 0), 0)
+  filteredFees.value.reduce((sum, f) => sum + (f.remainingAmount || 0), 0)
 );
 
 function getProgressPercent(fee) {
-  if (! fee.totalAmount) return 0;
-  return Math.round((fee. paidAmount / fee.totalAmount) * 100);
+  if (!fee.totalAmount) return 0;
+  return Math.round((fee.paidAmount / fee.totalAmount) * 100);
 }
 
-// ====== DIALOG ======
+// ====== DIALOG MINH CHỨNG ======
 const proofDialog = ref({
   show: false,
   feeId: null,
@@ -396,15 +400,15 @@ const proofDialog = ref({
 });
 
 const previewUrl = computed(() => {
-  if (!proofDialog. value.file) return null;
+  if (!proofDialog.value.file) return null;
   return URL.createObjectURL(proofDialog.value.file);
 });
 
 function openProofDialog(fee) {
   proofDialog.value = {
     show: true,
-    feeId: fee. id,
-    feeTitle: `${fee.semester} - ${fee. feeYear}`,
+    feeId: fee.id,
+    feeTitle: `${fee.semester} - ${fee.feeYear}`,
     file: null,
     note: "",
     sending: false,
@@ -412,22 +416,22 @@ function openProofDialog(fee) {
 }
 
 function closeProofDialog() {
-  proofDialog.value. show = false;
+  proofDialog.value.show = false;
 }
 
 function triggerFileInput() {
-  fileInput.value?. click();
+  fileInput.value?.click();
 }
 
 function onFileSelect(e) {
   const file = e.target.files?.[0];
   if (file) {
-    proofDialog.value. file = file;
+    proofDialog.value.file = file;
   }
 }
 
 function removeFile() {
-  proofDialog. value.file = null;
+  proofDialog.value.file = null;
   if (fileInput.value) fileInput.value.value = "";
 }
 
@@ -492,16 +496,43 @@ function formatDateTime(str) {
 }
 
 function canSubmitProof(fee) {
-  return ["PENDING", "OVERDUE", "REJECTED"].includes(fee. status);
+  return ["PENDING", "OVERDUE", "REJECTED"].includes(fee.status);
+}
+
+// Map FeeResponse từ BE sang object FE dùng
+function mapFeeResponse(f) {
+  return {
+    id: f.id,
+    studentId: f.studentId,
+    studentName: f.studentName,
+    className: f.className,
+    studentCode: f.studentCode,
+    semester: f.semester,
+    feeYear: f.year || f.feeYear,
+    totalAmount: Number(f.totalAmount ?? 0),
+    paidAmount: Number(f.paidAmount ?? 0),
+    remainingAmount: Number(f.remainingAmount ?? 0),
+    status: f.status,
+    dueDate: f.dueDate,
+    lastPaymentDate: f.lastPaymentDate || f.lastPaidAt,
+  };
 }
 
 // ====== API ======
 async function loadMyFees() {
   try {
-    loading. value = true;
-    const res = await api.get("/fees/my-fees");
-    const list = res.data?. data || [];
-    fees.value = list;
+    loading.value = true;
+
+    const res = await api.get("/fees/my-fees", {
+      headers: {
+        Authorization: `Bearer ${auth.accessToken}`,
+      },
+    });
+
+    const apiResp = res.data || {};
+    const list = apiResp.data || [];
+
+    fees.value = list.map(mapFeeResponse);
 
     if (list.length && !selectedStudentId.value) {
       selectedStudentId.value = list[0].studentId;
@@ -510,7 +541,7 @@ async function loadMyFees() {
     console.error("[Fees] loadMyFees error", e);
     $q.notify({
       type: "negative",
-      message: e?.response?.data?. message || "Không lấy được thông tin học phí.",
+      message: e?.response?.data?.message || "Không lấy được thông tin học phí.",
     });
   } finally {
     loading.value = false;
@@ -518,25 +549,28 @@ async function loadMyFees() {
 }
 
 async function submitProof() {
-  if (! proofDialog.value.feeId || !proofDialog.value. file) return;
+  if (!proofDialog.value.feeId || !proofDialog.value.file) return;
 
   try {
     proofDialog.value.sending = true;
 
     const formData = new FormData();
-    formData. append("feeId", proofDialog. value.feeId);
+    formData.append("feeId", proofDialog.value.feeId);
     formData.append("proofImage", proofDialog.value.file);
-    if (proofDialog.value. note) {
+    if (proofDialog.value.note) {
       formData.append("note", proofDialog.value.note);
     }
 
     await api.post("/fees/proof", formData, {
-      headers: { "Content-Type": "multipart/form-data" },
+      headers: {
+        "Content-Type": "multipart/form-data",
+        Authorization: `Bearer ${auth.accessToken}`,
+      },
     });
 
     $q.notify({
       type: "positive",
-      message: "Đã gửi minh chứng thành công! ",
+      message: "Đã gửi minh chứng thành công!",
       icon: "check_circle",
     });
 
@@ -553,14 +587,16 @@ async function submitProof() {
   }
 }
 
+// ====== INIT ======
 onMounted(() => {
   if (!auth.accessToken) {
-    $q. notify({ type: "warning", message: "Bạn chưa đăng nhập." });
+    $q.notify({ type: "warning", message: "Bạn chưa đăng nhập." });
     return;
   }
   loadMyFees();
 });
 </script>
+
 
 <style scoped>
 . fee-page {

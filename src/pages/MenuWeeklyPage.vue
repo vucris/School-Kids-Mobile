@@ -191,15 +191,14 @@ const router = useRouter();
 const auth = useAuthStore();
 
 const loading = ref(false);
-const parentId = ref(null);
 const children = ref([]);
 const selectedChildId = ref(null);
 
 const childAvatar = ref("https://i.postimg.cc/2jFv66sG/avatar-kid.png");
 
 const weekStart = ref(null); // Date
-const weekEnd = ref(null);   // Date
-const days = ref([]);        // [{ key, longLabel, dateFull }]
+const weekEnd = ref(null); // Date
+const days = ref([]); // [{ key, longLabel, dateFull }]
 
 const menusMap = ref(new Map()); // Map<yyyy-MM-dd, { breakfast, lunch, snack }>
 const menuUpdatedAt = ref("");
@@ -218,9 +217,7 @@ const childName = computed(() => currentChild.value?.name || "Bé của bạn");
 
 const weekRangeLabel = computed(() => {
   if (!weekStart.value || !weekEnd.value) return "";
-  return `${formatDDMMYYYY(weekStart.value)} - ${formatDDMMYYYY(
-    weekEnd.value
-  )}`;
+  return `${formatDDMMYYYY(weekStart.value)} - ${formatDDMMYYYY(weekEnd.value)}`;
 });
 
 // ====== DATE HELPERS ======
@@ -232,16 +229,16 @@ function formatDDMMYYYY(date) {
   return `${dd}/${mm}/${yyyy}`;
 }
 
-function toDMY(date) {
+// format BE: yyyy-MM-dd
+function toISODate(date) {
   const d = new Date(date);
   const dd = String(d.getDate()).padStart(2, "0");
   const mm = String(d.getMonth() + 1).padStart(2, "0");
   const yyyy = d.getFullYear();
-  return `${dd}-${mm}-${yyyy}`; // dd-MM-yyyy cho BE
+  return `${yyyy}-${mm}-${dd}`;
 }
 
 function getWeekStart(date) {
-  // về thứ 2 của tuần chứa date
   const d = new Date(date);
   const day = d.getDay(); // 0 = CN
   const diff = (day === 0 ? -6 : 1) - day;
@@ -263,17 +260,15 @@ function weekdayFullLabel(d) {
   return map[d.getDay()];
 }
 
-// parse cả 2 kiểu: dd-MM-yyyy (BE) hoặc ISO (weekStart ở query)
+// parse dd-MM-yyyy hoặc ISO
 function parseApiDate(str) {
   if (!str) return null;
 
-  // dd-MM-yyyy
   if (/^\d{2}-\d{2}-\d{4}$/.test(str)) {
     const [dd, mm, yyyy] = str.split("-").map(Number);
     return new Date(yyyy, mm - 1, dd);
   }
 
-  // ISO, yyyy-MM-dd...
   const d = new Date(str);
   if (Number.isNaN(d.getTime())) return null;
   return d;
@@ -283,13 +278,11 @@ function parseApiDate(str) {
 function buildWeekFromParams(wsStr, weStr) {
   let start = parseApiDate(wsStr);
   if (!start) {
-    // fallback: tuần hiện tại
     start = getWeekStart(new Date());
   }
 
   let end = parseApiDate(weStr);
   if (!end) {
-    // nếu không truyền weekEnd thì cộng 6 ngày (T2 -> CN)
     end = new Date(start);
     end.setDate(end.getDate() + 6);
   }
@@ -311,38 +304,23 @@ function buildWeekFromParams(wsStr, weStr) {
   days.value = arr;
 }
 
-// ====== LOAD PARENT + CHILDREN ======
+// ====== LOAD CHILDREN ======
 async function loadParentAndChildren() {
   try {
     loading.value = true;
 
-    const username = auth.user?.username || localStorage.getItem("username");
-    if (!username) {
+    if (!auth.accessToken) {
       $q.notify({
         type: "warning",
-        message: "Không tìm thấy tài khoản phụ huynh hiện tại.",
+        message: "Bạn chưa đăng nhập.",
       });
       return;
     }
 
-    const resParents = await api.get("/parents/all");
-    const parentsApi = resParents.data || {};
-    const parents = parentsApi.data || [];
-    const parent = parents.find((p) => p.username === username);
-
-    if (!parent) {
-      $q.notify({
-        type: "warning",
-        message: "Không tìm thấy thông tin phụ huynh.",
-      });
-      return;
-    }
-
-    parentId.value = parent.id;
-
-    const resChildren = await api.get(`/parents/${parent.id}/children`);
-    const childrenApi = resChildren.data || {};
-    const list = childrenApi.data || [];
+    const resChildren = await api.get("/parents/children", {
+      headers: { Authorization: `Bearer ${auth.accessToken}` },
+    });
+    const list = resChildren.data?.data || [];
 
     children.value = list.map((s) => ({
       id: s.studentId,
@@ -351,9 +329,7 @@ async function loadParentAndChildren() {
       studentCode: s.studentCode,
     }));
 
-    const routeChildId = route.query.childId
-      ? Number(route.query.childId)
-      : null;
+    const routeChildId = route.query.childId ? Number(route.query.childId) : null;
 
     if (routeChildId) {
       const exist = children.value.find((c) => c.id === routeChildId);
@@ -374,8 +350,7 @@ async function loadParentAndChildren() {
 
 // ====== LOAD MENU TUẦN ======
 async function loadWeekMenu() {
-  if (!parentId.value || !selectedChildId.value || !weekStart.value || !weekEnd.value)
-    return;
+  if (!selectedChildId.value || !weekStart.value || !weekEnd.value) return;
 
   try {
     loading.value = true;
@@ -384,13 +359,16 @@ async function loadWeekMenu() {
     const end = new Date(weekEnd.value);
 
     const params = {
-      startDate: toDMY(start),
-      endDate: toDMY(end),
+      startDate: toISODate(start),
+      endDate: toISODate(end),
     };
 
     const res = await api.get(
-      `/parents/${parentId.value}/children/${selectedChildId.value}/menus`,
-      { params }
+      `/parents/children/${selectedChildId.value}/menu`,
+      {
+        params,
+        headers: { Authorization: `Bearer ${auth.accessToken}` },
+      }
     );
 
     const apiResp = res.data || {};
@@ -411,7 +389,7 @@ async function loadWeekMenu() {
         snack: [],
       };
 
-      const meals = m.meals || [];
+      const meals = m.meals || m.menuItems || [];
 
       meals.forEach((meal) => {
         const type = (meal.mealType || meal.type || "").toUpperCase();
@@ -422,7 +400,7 @@ async function loadWeekMenu() {
             .map((dish) =>
               typeof dish === "string"
                 ? dish
-                : dish.dishName || dish.name || ""
+                : dish.dishName || dish.name || dish.mealName || ""
             )
             .filter(Boolean);
         } else if (meal.mealName) {
@@ -432,11 +410,16 @@ async function loadWeekMenu() {
             .filter(Boolean);
         }
 
-        if (type.includes("BREAKFAST") || type.includes("SANG")) {
+        if (type.includes("BREAKFAST") || type.includes("SANG") || type.includes("SÁNG")) {
           dayMenu.breakfast.push(...dishNames);
-        } else if (type.includes("LUNCH") || type.includes("TRUA")) {
+        } else if (type.includes("LUNCH") || type.includes("TRUA") || type.includes("TRƯA")) {
           dayMenu.lunch.push(...dishNames);
-        } else if (type.includes("SNACK") || type.includes("CHIEU")) {
+        } else if (
+          type.includes("SNACK") ||
+          type.includes("CHIEU") ||
+          type.includes("CHIỀU") ||
+          type.includes("AFTERNOON")
+        ) {
           dayMenu.snack.push(...dishNames);
         }
       });
@@ -492,9 +475,9 @@ watch(
 );
 
 watch(
-  () => [parentId.value, selectedChildId.value, weekStart.value, weekEnd.value],
-  ([pId, stuId, ws, we]) => {
-    if (pId && stuId && ws && we) {
+  () => [selectedChildId.value, weekStart.value, weekEnd.value],
+  ([stuId, ws, we]) => {
+    if (stuId && ws && we) {
       loadWeekMenu();
     }
   }
@@ -542,7 +525,7 @@ onMounted(() => {
 /* block từng ngày */
 .day-block {
   border-radius: 16px;
-  padding: 8px 8px 8px;
+  padding: 8px;
   background: #f9fafb;
 }
 

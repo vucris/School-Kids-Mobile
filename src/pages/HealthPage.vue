@@ -646,7 +646,7 @@ const loading = ref(false);
 const submitting = ref(false);
 
 const viewMode = ref("overview"); // 'overview' | 'chart' | 'history'
-const chartType = ref("height"); // 'height' | 'weight' | 'bmi'
+const chartType = ref("height");  // 'height' | 'weight' | 'bmi'
 
 const childName = ref("");
 const selectedStudentId = ref(null);
@@ -668,8 +668,41 @@ const healthForm = ref({
   medicalConditions: "",
 });
 
-/* ======= OPTIONS ======= */
+/* ======= BASE URL ======= */
+// VITE_API_BASE_URL ví dụ: http://10.0.2.2:8080/api/v1
+const RAW_BASE = import.meta.env.VITE_API_BASE_URL || "http://10.0.2.2:8080/api/v1";
+// ROOT_API = http://10.0.2.2:8080
+const ROOT_API = RAW_BASE.replace(/\/api\/v1\/?$/, "");
 
+/**
+ * helper: GET với 2 bước
+ * 1. thử ROOT_API + path (không /api/v1)
+ * 2. nếu lỗi → thử RAW_BASE + path (có /api/v1)
+ *
+ * path phải bắt đầu bằng "/..."
+ */
+async function getWithDualBase(path) {
+  let lastError;
+  // Thử không /api/v1
+  try {
+    const res = await api.get(`${ROOT_API}${path}`);
+    return res;
+  } catch (e) {
+    console.warn(`[Health] GET ${ROOT_API}${path} lỗi, thử kèm /api/v1`, e);
+    lastError = e;
+  }
+
+  // Thử có /api/v1
+  try {
+    const res = await api.get(`${RAW_BASE}${path}`);
+    return res;
+  } catch (e2) {
+    console.error(`[Health] GET cả 2 base đều lỗi: ${path}`, { e1: lastError, e2 });
+    throw e2;
+  }
+}
+
+/* ======= OPTIONS ======= */
 const bloodTypeOptions = [
   { label: "Chưa xác định", value: null },
   { label: "A", value: "A" },
@@ -693,7 +726,6 @@ const statusOptions = [
 ];
 
 /* ======= COMPUTED ======= */
-
 const latestRecord = computed(() => {
   if (!measurements.value.length) return null;
   return measurements.value[measurements.value.length - 1];
@@ -701,7 +733,7 @@ const latestRecord = computed(() => {
 
 const chartTitle = computed(() => {
   if (chartType.value === "height") return "Biểu đồ chiều cao theo tháng tuổi";
-  if (chartType. value === "weight") return "Biểu đồ cân nặng theo tháng tuổi";
+  if (chartType.value === "weight") return "Biểu đồ cân nặng theo tháng tuổi";
   return "Biểu đồ BMI theo tháng tuổi";
 });
 
@@ -712,29 +744,33 @@ const yUnit = computed(() => {
 });
 
 const maxValue = computed(() => {
-  if (! measurements.value.length) return 0;
-  return Math.max(...measurements.value. map((m) => valueOf(m)));
+  if (!measurements.value.length) return 0;
+  return Math.max(...measurements.value.map((m) => valueOf(m)));
 });
 
 const yMarks = computed(() => {
+  const max =
+    chartType.value === "height"
+      ? 150
+      : chartType.value === "weight"
+      ? 60
+      : 35;
   const step = chartType.value === "bmi" ? 5 : 30;
-  const max = chartType.value === "height" ? 150 : chartType.value === "weight" ? 60 : 35;
   const arr = [];
   for (let v = 0; v <= max; v += step) arr.push(v);
-  return arr. reverse();
+  return arr.reverse();
 });
 
 /* ======= HELPERS ======= */
-
 function valueOf(m) {
-  if (chartType.value === "height") return m. height || 0;
+  if (chartType.value === "height") return m.height || 0;
   if (chartType.value === "weight") return m.weight || 0;
   return m.bmi || 0;
 }
 
 function barHeight(v) {
-  if (! maxValue.value) return 0;
-  return Math.max(8, (v / maxValue. value) * 100);
+  if (!maxValue.value) return 0;
+  return Math.max(8, (v / maxValue.value) * 100);
 }
 
 function formatNumber(val) {
@@ -749,7 +785,7 @@ function swimmingLabel(val) {
 }
 
 function statusColor(status) {
-  if (! status) return "grey-6";
+  if (!status) return "grey-6";
   const s = status.toLowerCase();
   if (s.includes("bình")) return "green-6";
   if (s.includes("thiếu")) return "blue-6";
@@ -764,87 +800,115 @@ function statusIcon(status) {
   if (s.includes("bình")) return "check_circle";
   if (s.includes("thiếu")) return "trending_down";
   if (s.includes("thừa")) return "trending_up";
-  if (s. includes("béo")) return "warning";
+  if (s.includes("béo")) return "warning";
   return "help_outline";
 }
 
-/* ======= LOAD DATA ======= */
-
+/* ======= LOCAL STORAGE STUDENT ID ======= */
 function getStudentIdFromLocal() {
   const raw = localStorage.getItem("currentStudentId");
-  if (! raw) return null;
+  if (!raw) return null;
   const n = Number(raw);
   return Number.isNaN(n) ? null : n;
 }
 
-async function resolveStudentIdFromParent() {
-  const username = auth.user?. username || localStorage.getItem("username");
-  if (! username) return null;
-
-  const resParents = await api.get("/parents/all");
-  const parents = resParents.data?. data || [];
-  const parent = parents.find((p) => p. username === username);
-  if (! parent) return null;
-
-  const resChildren = await api. get(`/parents/${parent.id}/children`);
-  const list = resChildren.data?.data || [];
-
-  children.value = list. map((s) => ({
-    id: s.studentId,
-    name: s.fullName,
-    className: s.className,
-    studentCode: s.studentCode,
-  }));
-
-  if (! list.length) return null;
-
-  const first = list[0];
-  childName.value = first.fullName || "";
-  return first.studentId;
-}
-
+/* ======= MAP DỮ LIỆU HEALTH RECORD TỪ BE ======= */
 function mapHealthRecordsToMeasurements(records) {
   if (!Array.isArray(records)) return [];
   return records
     .map((r) => ({
       id: r.id,
-      month: r. ageInMonths ??  r.recordMonth ?? 0,
+      month: r.ageInMonths ?? r.recordMonth ?? 0,
       height: r.heightCm != null ? Number(r.heightCm) : null,
       weight: r.weightKg != null ? Number(r.weightKg) : null,
-      bmi: r. bmi != null ?  Number(r.bmi) : null,
+      bmi: r.bmi != null ? Number(r.bmi) : null,
       status: r.nutritionStatus || null,
       bloodType: r.bloodType || null,
       knowsSwimming: r.knowsSwimming,
-      eyeIssue: r. eyeIssue || "",
-      dentalIssue: r. dentalIssue || "",
+      eyeIssue: r.eyeIssue || "",
+      dentalIssue: r.dentalIssue || "",
       note: r.note || "",
       recordYear: r.recordYear,
       recordMonth: r.recordMonth,
       studentName: r.studentName,
     }))
-    .sort((a, b) => a.month - b. month);
+    .sort((a, b) => a.month - b.month);
 }
 
+/* ======= LOAD HEALTH RECORDS ======= */
 async function loadHealthRecords() {
-  if (! selectedStudentId.value) return;
+  if (!selectedStudentId.value) return;
 
   try {
-    loading. value = true;
+    loading.value = true;
+    // BE: @RequestMapping("/health-records")
+    const res = await getWithDualBase(`/health-records/student/${selectedStudentId.value}`);
 
-    const res = await api.get(`/health-records/student/${selectedStudentId.value}`);
-    const list = res.data?. data || [];
+    const apiResp = res.data || {};
+    const list = apiResp.data || apiResp || [];
 
     const mapped = mapHealthRecordsToMeasurements(list);
     measurements.value = mapped;
 
-    if (! childName.value && mapped.length && mapped[0].studentName) {
+    if (!childName.value && mapped.length && mapped[0].studentName) {
       childName.value = mapped[0].studentName;
     }
   } catch (e) {
     console.error("[Health] loadHealthRecords error", e);
+    measurements.value = [];
     $q.notify({
       type: "negative",
-      message: e?.response?.data?. message || "Không tải được hồ sơ sức khỏe.",
+      message: e?.response?.data?.message || "Không tải được hồ sơ sức khỏe.",
+    });
+  } finally {
+    loading.value = false;
+  }
+}
+
+/* ======= LẤY DANH SÁCH CON CỦA PHỤ HUYNH (DÙNG TOKEN) ======= */
+async function initStudentFromParent() {
+  try {
+    loading.value = true;
+
+    // ParentController: @RequestMapping("/parents")
+    // Endpoint cần dùng: GET /parents/children (dùng token)
+    const res = await getWithDualBase("/parents/children");
+
+    const apiResp = res.data || {};
+    const list = apiResp.data || apiResp || [];
+
+    if (!list.length) {
+      $q.notify({
+        type: "warning",
+        message: "Không tìm thấy bé nào gắn với tài khoản phụ huynh.",
+      });
+      return;
+    }
+
+    children.value = list.map((s) => ({
+      id: s.studentId,
+      name: s.fullName,
+      className: s.className,
+      studentCode: s.studentCode,
+    }));
+
+    // Ưu tiên ID lưu ở localStorage
+    let sid = getStudentIdFromLocal();
+    if (!sid || !children.value.some((c) => c.id === sid)) {
+      sid = children.value[0].id;
+    }
+
+    selectedStudentId.value = sid;
+    const current = children.value.find((c) => c.id === sid);
+    childName.value = current?.name || "";
+    localStorage.setItem("currentStudentId", String(sid));
+
+    await loadHealthRecords();
+  } catch (e) {
+    console.error("[Health] initStudentFromParent error", e);
+    $q.notify({
+      type: "negative",
+      message: e?.response?.data?.message || "Không lấy được danh sách bé.",
     });
   } finally {
     loading.value = false;
@@ -852,15 +916,14 @@ async function loadHealthRecords() {
 }
 
 function selectChild(s) {
-  if (selectedStudentId.value === s.id) return;
+  if (!s || s.id === selectedStudentId.value) return;
   selectedStudentId.value = s.id;
   childName.value = s.name;
   localStorage.setItem("currentStudentId", String(s.id));
   loadHealthRecords();
 }
 
-/* ======= SUBMIT FORM ======= */
-
+/* ======= FORM GỬI THÔNG TIN ======= */
 function resetHealthForm() {
   healthForm.value = {
     height: null,
@@ -877,22 +940,28 @@ function resetHealthForm() {
 }
 
 async function submitHealthInfo() {
-  // Validate form
   if (healthFormRef.value) {
-    const ok = await healthFormRef.value. validate();
+    const ok = await healthFormRef.value.validate();
     if (!ok) return;
   }
 
-  // Kiểm tra có ít nhất 1 thông tin
+  if (!selectedStudentId.value) {
+    $q.notify({
+      type: "warning",
+      message: "Không xác định được bé để gửi hồ sơ sức khỏe.",
+    });
+    return;
+  }
+
   const f = healthForm.value;
   const hasData =
     f.height ||
     f.weight ||
-    f. bloodType ||
+    f.bloodType ||
     f.knowsSwimming !== null ||
-    f. eyeIssue ||
-    f. dentalIssue ||
-    f. status ||
+    f.eyeIssue ||
+    f.dentalIssue ||
+    f.status ||
     f.note ||
     f.allergies ||
     f.medicalConditions;
@@ -908,41 +977,44 @@ async function submitHealthInfo() {
   try {
     submitting.value = true;
 
-    // TODO: Gọi API gửi thông tin y tế
-    // const payload = {
-    //   studentId: selectedStudentId.value,
-    //   heightCm: f. height,
-    //   weightKg: f.weight,
-    //   bloodType: f.bloodType,
-    //   knowsSwimming: f.knowsSwimming,
-    //   eyeIssue: f.eyeIssue,
-    //   dentalIssue: f. dentalIssue,
-    //   nutritionStatus: f. status,
-    //   note: f. note,
-    //   allergies: f.allergies,
-    //   medicalConditions: f. medicalConditions,
-    // };
-    // await api.post("/health-records/parent-submit", payload);
+    const payload = {
+      studentId: selectedStudentId.value,
+      heightCm: f.height,
+      weightKg: f.weight,
+      bloodType: f.bloodType,
+      knowsSwimming: f.knowsSwimming,
+      eyeIssue: f.eyeIssue || null,
+      dentalIssue: f.dentalIssue || null,
+      nutritionStatus: f.status || null,
+      note: f.note || null,
+      allergies: f.allergies || null,
+      medicalConditions: f.medicalConditions || null,
+    };
 
-    // Demo: hiển thị thông báo thành công
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    // POST /health-records/create (thử 2 base như GET)
+    let postUrl = `${ROOT_API}/health-records/create`;
+    try {
+      await api.post(postUrl, payload);
+    } catch (e1) {
+      console.warn("[Health] POST ROOT_API/health-records/create lỗi, thử RAW_BASE", e1);
+      postUrl = `${RAW_BASE}/health-records/create`;
+      await api.post(postUrl, payload);
+    }
 
     $q.notify({
       type: "positive",
-      message: "Đã gửi thông tin y tế thành công! ",
+      message: "Đã gửi thông tin sức khỏe của bé thành công!",
       icon: "check_circle",
     });
 
-    showHealthForm. value = false;
+    showHealthForm.value = false;
     resetHealthForm();
-
-    // Reload data
     await loadHealthRecords();
   } catch (e) {
     console.error("[Health] submitHealthInfo error", e);
     $q.notify({
       type: "negative",
-      message: e?.response?.data?. message || "Gửi thông tin thất bại.",
+      message: e?.response?.data?.message || "Gửi thông tin thất bại.",
     });
   } finally {
     submitting.value = false;
@@ -950,9 +1022,8 @@ async function submitHealthInfo() {
 }
 
 /* ======= INIT ======= */
-
 onMounted(async () => {
-  if (! auth.accessToken) {
+  if (!auth.accessToken) {
     $q.notify({
       type: "warning",
       message: "Bạn chưa đăng nhập.",
@@ -960,23 +1031,11 @@ onMounted(async () => {
     return;
   }
 
-  let sid = getStudentIdFromLocal();
-  if (! sid) {
-    sid = await resolveStudentIdFromParent();
-  }
-
-  if (! sid) {
-    $q.notify({
-      type: "warning",
-      message: "Không tìm thấy học sinh để hiển thị hồ sơ sức khỏe.",
-    });
-    return;
-  }
-
-  selectedStudentId.value = sid;
-  await loadHealthRecords();
+  await initStudentFromParent();
 });
 </script>
+
+
 
 <style scoped>
 .health-page {

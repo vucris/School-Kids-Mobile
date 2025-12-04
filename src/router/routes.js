@@ -95,6 +95,12 @@ const routes = [
         name: 'fee-student',
         component: () => import('pages/FeePage.vue'),
       },
+           {
+        path: 'leave',
+        name: 'leave-student',
+        component: () => import('pages/ParentLeave.vue'),
+      },
+
     ],
   },
 

@@ -197,14 +197,13 @@
     </div>
   </q-page>
 </template>
-
 <script setup>
-import { ref, onMounted } from "vue";
-import { useQuasar } from "quasar";
-import { useRouter } from "vue-router";
-import { useAuthStore } from "src/stores/auth";
-import { api } from "boot/axios";
-import { DEFAULT_AVATAR } from "src/constants/avatar";
+import { ref, onMounted } from 'vue';
+import { useQuasar } from 'quasar';
+import { useRouter } from 'vue-router';
+import { useAuthStore } from 'src/stores/auth';
+import { api } from 'boot/axios';
+import { DEFAULT_AVATAR } from 'src/constants/avatar';
 
 const $q = useQuasar();
 const router = useRouter();
@@ -216,59 +215,45 @@ const loading = ref(false);
 const children = ref([]); // toàn bộ con
 const child = ref({
   id: null,
-  name: "Bé yêu",
-  className: "",
-  studentCode: "",
-  avatar: DEFAULT_AVATAR,
+  name: 'Bé yêu',
+  className: '',
+  studentCode: '',
+  avatar: DEFAULT_AVATAR
 });
 const albums = ref([]);
-const currentParentId = ref(null);
 
 // ---- FORMAT DATE + TIME: giờ trước ngày ----
 function formatDateTime(value) {
-  if (!value) return "";
+  if (!value) return '';
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return value;
-  const dd = String(d.getDate()).padStart(2, "0");
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
   const yyyy = d.getFullYear();
-  const hh = String(d.getHours()).padStart(2, "0");
-  const mi = String(d.getMinutes()).padStart(2, "0");
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mi = String(d.getMinutes()).padStart(2, '0');
   // ví dụ: 09:15 · 27/11/2025
   return `${hh}:${mi} · ${dd}/${mm}/${yyyy}`;
 }
 
-// ---- LẤY PARENT + CHILDREN TỪ BE ----
-async function fetchParentAndChildren() {
+// ---- LẤY DANH SÁCH CON TỪ BE (DÙNG TOKEN) ----
+async function fetchChildren() {
   try {
     loading.value = true;
 
-    const username = auth.user?.username || localStorage.getItem("username");
-
-    if (!username) {
+    if (!auth.accessToken) {
       $q.notify({
-        type: "warning",
-        message: "Không tìm thấy tài khoản phụ huynh hiện tại.",
+        type: 'warning',
+        message: 'Bạn chưa đăng nhập.'
       });
       return;
     }
 
-    const resParents = await api.get("/parents/all");
-    const apiParents = resParents.data || {};
-    const parents = apiParents.data || [];
+    // GET /parents/children  (ParentController: dùng Authorization token)
+    const resChildren = await api.get('/parents/children', {
+      headers: { Authorization: `Bearer ${auth.accessToken}` }
+    });
 
-    const parent = parents.find((p) => p.username === username);
-    if (!parent) {
-      $q.notify({
-        type: "warning",
-        message: "Không tìm thấy thông tin phụ huynh tương ứng.",
-      });
-      return;
-    }
-
-    currentParentId.value = parent.id;
-
-    const resChildren = await api.get(`/parents/${parent.id}/children`);
     const apiChildren = resChildren.data || {};
     const list = apiChildren.data || [];
 
@@ -277,17 +262,18 @@ async function fetchParentAndChildren() {
       name: s.fullName,
       className: s.className,
       studentCode: s.studentCode,
-      avatar: DEFAULT_AVATAR,
+      avatar: DEFAULT_AVATAR
     }));
 
+    // Chọn bé mặc định
     if (children.value.length > 0) {
-      selectChild(children.value[0]); // mặc định chọn bé đầu tiên
+      selectChild(children.value[0]);
     }
   } catch (e) {
-    console.error("[Album] fetchParentAndChildren error", e);
+    console.error('[Album] fetchChildren error', e);
     $q.notify({
-      type: "negative",
-      message: "Không lấy được thông tin phụ huynh / con.",
+      type: 'negative',
+      message: e?.response?.data?.message || 'Không lấy được danh sách con.'
     });
   } finally {
     loading.value = false;
@@ -295,35 +281,42 @@ async function fetchParentAndChildren() {
 }
 
 // ---- LẤY ALBUM THEO BÉ ----
+// BE: GET /parents/children/{studentId}/albums (dùng token)
 async function fetchAlbumsForChild(studentId) {
-  if (!currentParentId.value || !studentId) return;
+  if (!studentId) return;
 
   try {
     loading.value = true;
-    const res = await api.get(
-      `/parents/${currentParentId.value}/children/${studentId}/albums`
-    );
+
+    const res = await api.get(`/parents/children/${studentId}/albums`, {
+      headers: { Authorization: `Bearer ${auth.accessToken}` }
+    });
+
     const apiAlbums = res.data || {};
     const list = apiAlbums.data || [];
+
     albums.value = list.map((a) => ({
       id: a.albumId,
       title: a.albumTitle,
       description: a.description,
       createdAt: a.createdAt,
-      // info người đăng lấy từ BE (tùy DTO của bạn)
       createdBy:
-        a.createdByName || a.createdBy || a.teacherName || a.uploaderName || "",
+        a.createdByName ||
+        a.createdBy ||
+        a.teacherName ||
+        a.uploaderName ||
+        '',
       photoCount: Array.isArray(a.photos) ? a.photos.length : 0,
       coverUrl:
         Array.isArray(a.photos) && a.photos.length > 0
           ? a.photos[0].photoUrl
-          : "https://i.postimg.cc/L5pNS6fB/album-placeholder.png",
+          : 'https://i.postimg.cc/L5pNS6fB/album-placeholder.png'
     }));
   } catch (e) {
-    console.error("[Album] fetchAlbumsForChild error", e);
+    console.error('[Album] fetchAlbumsForChild error', e);
     $q.notify({
-      type: "negative",
-      message: "Không lấy được danh sách album của bé.",
+      type: 'negative',
+      message: e?.response?.data?.message || 'Không lấy được danh sách album của bé.'
     });
   } finally {
     loading.value = false;
@@ -335,7 +328,7 @@ function selectChild(s) {
   child.value = {
     ...child.value,
     ...s,
-    avatar: DEFAULT_AVATAR, // luôn dùng avatar mặc định
+    avatar: DEFAULT_AVATAR // luôn dùng avatar mặc định
   };
   fetchAlbumsForChild(s.id);
 }
@@ -351,50 +344,50 @@ function reloadAlbums() {
 function openChildDetail() {
   if (!child.value.id) {
     $q.notify({
-      type: "warning",
-      message: "Chưa chọn bé để xem chi tiết.",
+      type: 'warning',
+      message: 'Chưa chọn bé để xem chi tiết.'
     });
     return;
   }
 
-  localStorage.setItem("currentStudentId", String(child.value.id));
+  localStorage.setItem('currentStudentId', String(child.value.id));
 
   router.push({
-    name: "child-detail",
-    params: { studentId: child.value.id },
+    name: 'child-detail',
+    params: { studentId: child.value.id }
   });
 }
 
 // bấm album → chuyển qua trang chi tiết
 function openAlbum(album) {
-  if (!currentParentId.value || !child.value.id) {
+  if (!child.value.id) {
     $q.notify({
-      type: "warning",
-      message: "Thiếu thông tin phụ huynh hoặc bé.",
+      type: 'warning',
+      message: 'Thiếu thông tin bé.'
     });
     return;
   }
 
-  localStorage.setItem("currentParentId", String(currentParentId.value));
-  localStorage.setItem("currentStudentId", String(child.value.id));
+  localStorage.setItem('currentStudentId', String(child.value.id));
 
   router.push({
-    name: "album-detail",
-    params: { albumId: album.id },
+    name: 'album-detail',
+    params: { albumId: album.id }
   });
 }
 
 onMounted(() => {
   if (auth.accessToken) {
-    fetchParentAndChildren();
+    fetchChildren();
   } else {
     $q.notify({
-      type: "warning",
-      message: "Bạn chưa đăng nhập.",
+      type: 'warning',
+      message: 'Bạn chưa đăng nhập.'
     });
   }
 });
 </script>
+
 
 <style scoped>
 .album-page {

@@ -151,7 +151,6 @@
     </q-dialog>
   </q-page>
 </template>
-
 <script setup>
 import { ref, computed, onMounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
@@ -224,10 +223,9 @@ function nextPhoto() {
 // gọi API lấy chi tiết album
 async function fetchAlbumDetail() {
   const albumId = route.params.albumId;
-  const parentId = localStorage.getItem("currentParentId");
   const studentId = localStorage.getItem("currentStudentId");
 
-  if (!albumId || !parentId || !studentId) {
+  if (!albumId || !studentId) {
     $q.notify({
       type: "negative",
       message: "Thiếu thông tin để tải album. Hãy quay lại và thử lại.",
@@ -238,8 +236,10 @@ async function fetchAlbumDetail() {
 
   try {
     loading.value = true;
+
+    // BE mới: GET /parents/children/{studentId}/albums/{albumId}
     const res = await api.get(
-      `/parents/${parentId}/children/${studentId}/albums/${albumId}`
+      `/parents/children/${studentId}/albums/${albumId}`
     );
     const apiAlbum = res.data?.data;
 
@@ -269,6 +269,7 @@ onMounted(() => {
   fetchAlbumDetail();
 });
 </script>
+
 
 <style scoped>
 .album-detail-page {

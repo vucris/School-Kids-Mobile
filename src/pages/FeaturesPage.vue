@@ -170,7 +170,7 @@ const allFeatures = [
     label: "Xin nghỉ",
     iconComponent: IconLeave,
     iconBg: "bg-blue",
-    route: "/features/leave",
+    route: "leave",
   },
   {
     key: "attendance",

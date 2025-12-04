@@ -278,6 +278,7 @@ const children = ref([]);
 
 // bé đang được chọn để hiển thị
 const child = ref({
+  id: null,
   name: "Bé yêu",
   className: "Lớp của bé",
   studentCode: "Mã HS",
@@ -292,53 +293,50 @@ const roleLabel = computed(() => {
   return "Phụ huynh";
 });
 
+// header Authorization chung
+const authHeaders = computed(() =>
+  auth.accessToken
+    ? { Authorization: `Bearer ${auth.accessToken}` }
+    : {}
+);
+
 // chọn bé khi click chip
 function selectChild(s) {
+  if (!s) return;
   child.value = { ...s };
+  // nếu cần dùng studentId ở màn khác thì lưu lại
+  localStorage.setItem("currentStudentId", String(s.id));
 }
 
-// LẤY DỮ LIỆU TỪ BE
+// LẤY DỮ LIỆU TỪ BE (dựa trên token)
 async function fetchProfile() {
   try {
     loadingProfile.value = true;
 
-    // 1. Lấy username hiện tại
-    const username = auth.user?.username || localStorage.getItem("username");
-
-    if (!username) {
-      console.warn("[Account] Không tìm thấy username hiện tại");
-      return;
-    }
-
-    // 2. /parents/all → tìm phụ huynh theo username
-    const resParents = await api.get("/parents/all");
-    const apiResp = resParents.data || {};
-    const parents = apiResp.data || [];
-
-    const parent = parents.find((p) => p.username === username);
-
-    if (!parent) {
+    if (!auth.accessToken) {
       $q.notify({
         type: "warning",
-        message: "Không tìm thấy thông tin phụ huynh cho tài khoản hiện tại.",
+        message: "Bạn chưa đăng nhập.",
       });
       return;
     }
 
-    // cập nhật thông tin phụ huynh
+    // 1. Lấy thông tin phụ huynh từ auth.user (payload khi login)
+    const user = auth.user || {};
     profile.value = {
       ...profile.value,
-      fullName: parent.fullName || profile.value.fullName,
-      username: parent.username || username,
-      phone: parent.phone || "",
-      email: parent.email || "",
+      fullName: user.fullName || user.name || profile.value.fullName,
+      username: user.username || profile.value.username,
+      email: user.email || "",
+      phone: user.phone || "",
+      // relationship, occupation giữ nguyên hoặc sau này cập nhật từ API khác
     };
 
-    // 3. /parents/{parentId}/children → lấy danh sách con
-    const parentId = parent.id;
-    if (!parentId) return;
+    // 2. GET /parents/children → BE tự xác định phụ huynh từ token
+    const resChildren = await api.get("/parents/children", {
+      headers: authHeaders.value,
+    });
 
-    const resChildren = await api.get(`/parents/${parentId}/children`);
     const childResp = resChildren.data || {};
     const list = childResp.data || [];
 
@@ -353,12 +351,18 @@ async function fetchProfile() {
     // nếu có ít nhất 1 bé, set bé đầu tiên là mặc định
     if (children.value.length > 0) {
       child.value = { ...children.value[0] };
+      localStorage.setItem(
+        "currentStudentId",
+        String(children.value[0].id)
+      );
     }
   } catch (e) {
     console.error("[Account] fetchProfile error", e);
     $q.notify({
       type: "negative",
-      message: "Không lấy được thông tin tài khoản. Vui lòng thử lại.",
+      message:
+        e?.response?.data?.message ||
+        "Không lấy được thông tin tài khoản. Vui lòng thử lại.",
     });
   } finally {
     loadingProfile.value = false;
@@ -368,6 +372,11 @@ async function fetchProfile() {
 onMounted(() => {
   if (auth.accessToken) {
     fetchProfile();
+  } else {
+    $q.notify({
+      type: "warning",
+      message: "Bạn chưa đăng nhập.",
+    });
   }
 });
 
@@ -402,16 +411,12 @@ function onLogout() {
   }).onOk(async () => {
     await auth.logout(); // gọi /auth/logout + xoá token local
 
-    // Điều hướng về login
     router.replace({ name: "login" });
-
-    // 🔥 Reset toàn bộ SPA giống như anh tắt đa nhiệm & mở lại
     window.location.reload();
   });
 }
-
-
 </script>
+
 
 <style scoped>
 .account-page {

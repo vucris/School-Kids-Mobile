@@ -235,7 +235,6 @@
     </div>
   </q-page>
 </template>
-
 <script setup>
 import { ref, computed, onMounted } from "vue";
 import { useQuasar } from "quasar";
@@ -255,7 +254,7 @@ const submitting = ref(false);
 
 const feedbackFormRef = ref(null);
 
-const parentId = ref(null);
+// const parentId = ref(null); // hiện chưa cần dùng parentId, nhưng giữ lại nếu sau này BE cần
 const children = ref([]);
 const selectedChildId = ref(null);
 
@@ -275,6 +274,15 @@ const allFeedbackHistory = ref([]);
 
 const currentChild = computed(
   () => children.value.find((c) => c.id === selectedChildId.value) || null
+);
+
+// headers Authorization cho mọi API dựa trên token
+const authHeaders = computed(() =>
+  auth.accessToken
+    ? {
+        Authorization: `Bearer ${auth.accessToken}`,
+      }
+    : {}
 );
 
 /* ======= HELPERS ======= */
@@ -311,7 +319,9 @@ function formatHistoryDateTime(dateStr, timeStr) {
   const yyyy = d.getFullYear();
   const time =
     timeStr ||
-    `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+    `${String(d.getHours()).padStart(2, "0")}:${String(
+      d.getMinutes()
+    ).padStart(2, "0")}`;
   return `${dd}/${mm}/${yyyy} lúc ${time}`;
 }
 
@@ -345,36 +355,30 @@ function statusIcon(status) {
 
 /* ======= LOAD DATA ======= */
 
+/**
+ * Lấy thông tin phụ huynh từ auth.user + danh sách con từ /parents/children (dựa theo token).
+ * Không còn dùng /parents (admin endpoint) nữa.
+ */
 async function loadParentAndChildren() {
   try {
     loading.value = true;
 
-    const username = auth.user?.username || localStorage.getItem("username");
-    if (!username) {
+    if (!auth.accessToken) {
       $q.notify({
         type: "warning",
-        message: "Không tìm thấy tài khoản phụ huynh.",
+        message: "Bạn chưa đăng nhập.",
       });
       return;
     }
 
-    const resParents = await api.get("/parents/all");
-    const parentsApi = resParents.data || {};
-    const parents = parentsApi.data || [];
-    const parent = parents.find((p) => p.username === username);
+    // Dùng thông tin từ token (auth.user) để hiển thị tên phụ huynh
+    form.value.parentName = auth.user?.fullName || "";
 
-    if (!parent) {
-      $q.notify({
-        type: "warning",
-        message: "Không tìm thấy thông tin phụ huynh.",
-      });
-      return;
-    }
+    // Gọi BE mới: GET /parents/children (BE tự xác định phụ huynh từ Authorization header)
+    const resChildren = await api.get("/parents/children", {
+      headers: authHeaders.value,
+    });
 
-    parentId.value = parent.id;
-    form.value.parentName = parent.fullName || "";
-
-    const resChildren = await api.get(`/parents/${parent.id}/children`);
     const childrenApi = resChildren.data || {};
     const list = childrenApi.data || [];
 
@@ -388,12 +392,15 @@ async function loadParentAndChildren() {
     if (children.value.length) {
       selectedChildId.value = children.value[0].id;
       form.value.studentCode = children.value[0].studentCode;
+    } else {
+      selectedChildId.value = null;
+      form.value.studentCode = "";
     }
   } catch (e) {
     console.error("[Feedback] loadParentAndChildren error", e);
     $q.notify({
       type: "negative",
-      message: "Không lấy được thông tin phụ huynh / con.",
+      message: e?.response?.data?.message || "Không lấy được thông tin phụ huynh / con.",
     });
   } finally {
     loading.value = false;
@@ -405,7 +412,9 @@ function selectChild(s) {
   selectedChildId.value = s.id;
   form.value.studentCode = s.studentCode;
 
-  feedbackHistory.value = allFeedbackHistory.value.filter((fb) => fb.studentId === s.id);
+  feedbackHistory.value = allFeedbackHistory.value.filter(
+    (fb) => fb.studentId === s.id
+  );
 }
 
 async function loadFeedbackHistory() {
@@ -413,9 +422,7 @@ async function loadFeedbackHistory() {
     historyLoading.value = true;
 
     const res = await api.get("/feedbacks/my-feedbacks", {
-      headers: {
-        Authorization: `Bearer ${auth.accessToken}`,
-      },
+      headers: authHeaders.value,
     });
 
     const apiResp = res.data || {};
@@ -423,12 +430,16 @@ async function loadFeedbackHistory() {
 
     list.sort(
       (a, b) =>
-        new Date(b.messageDate || b.createdAt) - new Date(a.messageDate || a.createdAt)
+        new Date(b.messageDate || b.createdAt) -
+        new Date(a.messageDate || a.createdAt)
     );
 
     allFeedbackHistory.value = list;
+
     if (selectedChildId.value) {
-      feedbackHistory.value = list.filter((fb) => fb.studentId === selectedChildId.value);
+      feedbackHistory.value = list.filter(
+        (fb) => fb.studentId === selectedChildId.value
+      );
     } else {
       feedbackHistory.value = list;
     }
@@ -472,9 +483,7 @@ async function submitFeedback() {
     };
 
     await api.post("/feedbacks/create", payload, {
-      headers: {
-        Authorization: `Bearer ${auth.accessToken}`,
-      },
+      headers: authHeaders.value,
     });
 
     $q.notify({
@@ -512,11 +521,13 @@ onMounted(async () => {
     });
     return;
   }
+
   initDefaultDateTime();
   await loadParentAndChildren();
   await loadFeedbackHistory();
 });
 </script>
+
 
 <style scoped>
 .feedback-page {

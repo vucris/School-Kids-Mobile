@@ -392,22 +392,28 @@ const auth = useAuthStore();
 const router = useRouter();
 
 const loading = ref(false);
-const days = ref([]);
+const days = ref([]); // danh sách thực đơn các ngày trong tuần
 const children = ref([]);
 const childName = ref("");
 const selectedStudentId = ref(null);
-const selectedParentId = ref(null);
 
-const viewMode = ref("day"); // 'day' | 'week'
+// view: 'day' | 'week'
+const viewMode = ref("day");
 const showDatePicker = ref(false);
 const tempDate = ref("");
 
+// ngày hiện tại
 const today = new Date();
 const selectedDate = ref(new Date(today));
+
+// tuần hiện tại (T2 -> CN)
 const weekStart = ref(getMonday(today));
 const weekEnd = ref(addDays(weekStart.value, 6));
 
 const mealTypes = ["Sáng", "Trưa", "Chiều"];
+
+// menu 1 ngày (view "Theo ngày")
+const selectedDayMenu = ref(null);
 
 /* ======= COMPUTED ======= */
 
@@ -420,27 +426,9 @@ const selectedDayOfWeek = computed(() => {
   return dayNames[selectedDate.value.getDay()];
 });
 
-const selectedDayMenu = computed(() => {
-  const dateStr = formatParamDate(selectedDate.value);
-  return days.value.find((d) => {
-    const menuDateStr = formatParamDate(new Date(d.menuDate));
-    return menuDateStr === dateStr;
-  });
-});
-
-const isToday = computed(() => {
-  return isSameDay(selectedDate.value, new Date());
-});
-
-const isTomorrow = computed(() => {
-  const tomorrow = addDays(new Date(), 1);
-  return isSameDay(selectedDate.value, tomorrow);
-});
-
-const isYesterday = computed(() => {
-  const yesterday = addDays(new Date(), -1);
-  return isSameDay(selectedDate.value, yesterday);
-});
+const isToday = computed(() => isSameDay(selectedDate.value, new Date()));
+const isTomorrow = computed(() => isSameDay(selectedDate.value, addDays(new Date(), 1)));
+const isYesterday = computed(() => isSameDay(selectedDate.value, addDays(new Date(), -1)));
 
 const isCurrentWeek = computed(() => {
   const currentMonday = getMonday(new Date());
@@ -452,7 +440,7 @@ const isNextWeek = computed(() => {
   return isSameDay(weekStart.value, nextMonday);
 });
 
-/* ======= HELPERS ======= */
+/* ======= HELPERS – DATE ======= */
 
 function isSameDay(d1, d2) {
   return (
@@ -464,9 +452,10 @@ function isSameDay(d1, d2) {
 
 function getMonday(d) {
   const date = new Date(d);
-  const day = date.getDay();
+  const day = date.getDay(); // 0 = CN
   const diff = (day === 0 ? -6 : 1) - day;
   date.setDate(date.getDate() + diff);
+  date.setHours(0, 0, 0, 0);
   return date;
 }
 
@@ -476,14 +465,16 @@ function addDays(d, n) {
   return date;
 }
 
+// format gửi BE: yyyy-MM-dd (ISO.DATE)
 function formatParamDate(d) {
   const date = new Date(d);
   const dd = String(date.getDate()).padStart(2, "0");
   const mm = String(date.getMonth() + 1).padStart(2, "0");
   const yyyy = date.getFullYear();
-  return `${dd}-${mm}-${yyyy}`;
+  return `${yyyy}-${mm}-${dd}`;
 }
 
+// format hiển thị: dd/MM/yyyy
 function formatDisplayDate(d) {
   const date = new Date(d);
   if (Number.isNaN(date.getTime())) return "--/--/----";
@@ -497,6 +488,23 @@ function getDayNumber(dateStr) {
   const d = new Date(dateStr);
   return d.getDate();
 }
+
+// parse date từ BE
+function parseApiDate(str) {
+  if (!str) return null;
+
+  // format dd-MM-yyyy
+  if (/^\d{2}-\d{2}-\d{4}$/.test(str)) {
+    const [dd, mm, yyyy] = str.split("-").map(Number);
+    return new Date(yyyy, mm - 1, dd);
+  }
+
+  const d = new Date(str);
+  if (Number.isNaN(d.getTime())) return null;
+  return d;
+}
+
+/* ======= HELPERS – MEAL UI ======= */
 
 function badgeLabel(type) {
   const t = type.toLowerCase();
@@ -544,22 +552,17 @@ function getMealPreview(dishes) {
   return `${dishes[0]} +${dishes.length - 1}`;
 }
 
-/* ======= LOAD DATA ======= */
+/* ======= LOAD DATA – LẤY CON ======= */
 
-async function resolveParentAndStudent() {
-  const username = auth.user?.username || localStorage.getItem("username");
-  if (!username) return null;
+/**
+ * GET /parents/children (dùng token)
+ */
+async function resolveStudent() {
+  const res = await api.get("/parents/children", {
+    headers: { Authorization: `Bearer ${auth.accessToken}` },
+  });
 
-  const resParents = await api.get("/parents/all");
-  const parents = resParents.data?.data || [];
-  const parent = parents.find((p) => p.username === username);
-  if (!parent) return null;
-
-  selectedParentId.value = parent.id;
-
-  const resChildren = await api.get(`/parents/${parent.id}/children`);
-  const list = resChildren.data?.data || [];
-
+  const list = res.data?.data || [];
   children.value = list.map((s) => ({
     id: s.studentId,
     name: s.fullName,
@@ -572,64 +575,131 @@ async function resolveParentAndStudent() {
   const first = list[0];
   selectedStudentId.value = first.studentId;
   childName.value = first.fullName;
-
-  return { parentId: parent.id, studentId: first.studentId };
+  return first.studentId;
 }
 
+/* ======= MAP DỮ LIỆU MENU NGÀY ======= */
+
 function normalizeDailyMenu(raw) {
-  const mealsByType = {};
-  (raw.meals || []).forEach((m) => {
-    const type = m.mealType || "Khác";
-    if (!mealsByType[type]) mealsByType[type] = [];
-    if (m.mealName) mealsByType[type].push(m.mealName);
+  // chuẩn hoá ngày
+  const dateObj = parseApiDate(raw.menuDate || raw.date || raw.day);
+  const menuDate = dateObj ? dateObj.toISOString().slice(0, 10) : null;
+
+  const mealsArr = raw.meals || raw.menuItems || [];
+  const mealsByType = {
+    Sáng: [],
+    Trưa: [],
+    Chiều: [],
+  };
+
+  mealsArr.forEach((m) => {
+    const rawType = (m.mealType || m.type || "").toUpperCase();
+
+    let key = "Khác";
+    if (rawType.includes("BREAKFAST") || rawType.includes("SANG") || rawType.includes("SÁNG")) {
+      key = "Sáng";
+    } else if (rawType.includes("LUNCH") || rawType.includes("TRUA") || rawType.includes("TRƯA")) {
+      key = "Trưa";
+    } else if (
+      rawType.includes("SNACK") ||
+      rawType.includes("CHIEU") ||
+      rawType.includes("CHIỀU") ||
+      rawType.includes("AFTERNOON")
+    ) {
+      key = "Chiều";
+    }
+
+    if (!mealsByType[key]) mealsByType[key] = [];
+
+    let dishNames = [];
+
+    if (Array.isArray(m.dishes)) {
+      dishNames = m.dishes
+        .map((dish) =>
+          typeof dish === "string"
+            ? dish
+            : dish.dishName || dish.name || dish.mealName || ""
+        )
+        .filter(Boolean);
+    } else if (m.mealName) {
+      dishNames = String(m.mealName)
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+    }
+
+    mealsByType[key].push(...dishNames);
   });
 
   return {
-    menuDate: raw.menuDate,
+    menuDate, // yyyy-MM-dd
     dayOfWeek: raw.dayOfWeek || "",
     mealsByType,
   };
 }
 
+/* ======= LOAD MENU (NGÀY / TUẦN) ======= */
+
 async function loadMenu() {
-  if (!selectedParentId.value || !selectedStudentId.value) return;
+  if (!selectedStudentId.value) return;
 
   try {
     loading.value = true;
 
-    let startParam, endParam;
+    const headers = {
+      Authorization: `Bearer ${auth.accessToken}`,
+    };
 
     if (viewMode.value === "day") {
-      // Load 1 tuần xung quanh ngày đang chọn để có dữ liệu
-      const monday = getMonday(selectedDate.value);
-      const sunday = addDays(monday, 6);
-      startParam = formatParamDate(monday);
-      endParam = formatParamDate(sunday);
+      // ===== LẤY MENU THEO NGÀY =====
+      const params = {
+        date: formatParamDate(selectedDate.value), // yyyy-MM-dd
+      };
+
+      const res = await api.get(
+        `/parents/children/${selectedStudentId.value}/menu/day`,
+        { params, headers }
+      );
+
+      const raw = res.data?.data || null;
+      selectedDayMenu.value = raw ? normalizeDailyMenu(raw) : null;
     } else {
-      startParam = formatParamDate(weekStart.value);
-      endParam = formatParamDate(weekEnd.value);
+      // ===== LẤY MENU THEO TUẦN =====
+      const monday = weekStart.value || getMonday(selectedDate.value);
+      const sunday = weekEnd.value || addDays(monday, 6);
+
+      weekStart.value = monday;
+      weekEnd.value = sunday;
+
+      const params = {
+        startDate: formatParamDate(monday),
+        endDate: formatParamDate(sunday),
+      };
+
+      const res = await api.get(
+        `/parents/children/${selectedStudentId.value}/menu`,
+        { params, headers }
+      );
+
+      const apiResp = res.data || {};
+      const list = apiResp.data || [];
+
+      days.value = list
+        .map(normalizeDailyMenu)
+        .filter((d) => d.menuDate)
+        .sort((a, b) => new Date(a.menuDate) - new Date(b.menuDate));
     }
-
-    const { data } = await api.get(
-      `/parents/${selectedParentId.value}/children/${selectedStudentId.value}/menus`,
-      {
-        params: {
-          startDate: startParam,
-          endDate: endParam,
-        },
-      }
-    );
-
-    const list = data?.data || [];
-    days.value = list
-      .map(normalizeDailyMenu)
-      .sort((a, b) => new Date(a.menuDate) - new Date(b.menuDate));
   } catch (e) {
     console.error("[Menu] loadMenu error", e);
     $q.notify({
       type: "negative",
       message: e?.response?.data?.message || "Không tải được thực đơn.",
     });
+    if (viewMode.value === "day") {
+      selectedDayMenu.value = null;
+    } else {
+      days.value = [];
+    }
   } finally {
     loading.value = false;
   }
@@ -660,18 +730,21 @@ function goToYesterday() {
 function changeWeek(offset) {
   weekStart.value = addDays(weekStart.value, offset * 7);
   weekEnd.value = addDays(weekStart.value, 6);
+  viewMode.value = "week";
   loadMenu();
 }
 
 function goToCurrentWeek() {
   weekStart.value = getMonday(new Date());
   weekEnd.value = addDays(weekStart.value, 6);
+  viewMode.value = "week";
   loadMenu();
 }
 
 function goToNextWeek() {
   weekStart.value = addDays(getMonday(new Date()), 7);
   weekEnd.value = addDays(weekStart.value, 6);
+  viewMode.value = "week";
   loadMenu();
 }
 
@@ -683,7 +756,7 @@ function selectChild(s) {
 }
 
 function selectDayFromWeek(day) {
-  selectedDate.value = new Date(day.menuDate);
+  selectedDate.value = new Date(day.menuDate || day.key);
   viewMode.value = "day";
   loadMenu();
 }
@@ -691,6 +764,7 @@ function selectDayFromWeek(day) {
 function confirmDatePicker() {
   if (tempDate.value) {
     selectedDate.value = new Date(tempDate.value);
+    viewMode.value = "day";
     loadMenu();
   }
   showDatePicker.value = false;
@@ -723,8 +797,8 @@ onMounted(async () => {
     return;
   }
 
-  const ok = await resolveParentAndStudent();
-  if (!ok) {
+  const sid = await resolveStudent();
+  if (!sid) {
     $q.notify({
       type: "warning",
       message: "Không tìm thấy thông tin bé gắn với tài khoản.",
@@ -732,13 +806,15 @@ onMounted(async () => {
     return;
   }
 
+  // date picker mặc định hôm nay (mask yyyy-MM-dd)
   tempDate.value = selectedDate.value.toISOString().slice(0, 10);
+
   await loadMenu();
 });
 </script>
 
 <style scoped>
-. menu-page {
+.menu-page {
   background: linear-gradient(180deg, #fff5f8 0%, #fef0f5 50%, #f8fafc 100%);
   min-height: 100vh;
   padding-bottom: 80px;
@@ -877,14 +953,14 @@ onMounted(async () => {
   color: #64748b;
 }
 
-.child-chip. active {
+.child-chip.active {
   background: linear-gradient(135deg, #ec4899, #f472b6);
   border-color: transparent;
   color: #fff;
-  box-shadow: 0 4px 12px rgba(236, 72, 153, 0 3);
+  box-shadow: 0 4px 12px rgba(236, 72, 153, 0.3);
 }
 
-. child-chip-avatar {
+.child-chip-avatar {
   width: 22px;
   height: 22px;
   border-radius: 50%;
@@ -915,7 +991,7 @@ onMounted(async () => {
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
 }
 
-. view-tab {
+.view-tab {
   flex: 1;
   display: flex;
   align-items: center;
@@ -942,7 +1018,7 @@ onMounted(async () => {
 .date-picker-card {
   border-radius: 18px;
   background: #fff;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0 08);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
   overflow: hidden;
 }
 
@@ -1004,7 +1080,7 @@ onMounted(async () => {
   color: #9ca3af;
 }
 
-. quick-dates {
+.quick-dates {
   display: flex;
   gap: 8px;
   padding: 0 12px 12px;
@@ -1023,7 +1099,7 @@ onMounted(async () => {
   transition: all 0.2s ease;
 }
 
-. quick-date-btn. active {
+.quick-date-btn.active {
   background: linear-gradient(135deg, #fce7f3, #fdf2f8);
   border-color: #f9a8d4;
   color: #db2777;
@@ -1044,13 +1120,13 @@ onMounted(async () => {
   padding: 12px;
 }
 
-. week-nav-btn {
+.week-nav-btn {
   width: 40px;
   height: 40px;
   color: #ec4899;
 }
 
-. week-display {
+.week-display {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -1082,7 +1158,7 @@ onMounted(async () => {
   color: #1e293b;
 }
 
-. quick-weeks {
+.quick-weeks {
   display: flex;
   gap: 8px;
   padding: 0 12px 12px;
@@ -1108,7 +1184,7 @@ onMounted(async () => {
 }
 
 /* ===== LOADING ===== */
-. loading-card {
+.loading-card {
   border-radius: 20px;
   background: #fff;
 }
@@ -1137,12 +1213,12 @@ onMounted(async () => {
   color: #ca8a04;
 }
 
-. empty-text strong {
+.empty-text strong {
   color: #92400e;
   font-size: 14px;
 }
 
-. empty-text p {
+.empty-text p {
   margin: 4px 0 0;
   font-size: 12px;
   color: #a16207;
@@ -1181,7 +1257,7 @@ onMounted(async () => {
   color: #1e293b;
 }
 
-. menu-subtitle {
+.menu-subtitle {
   font-size: 12px;
   color: #64748b;
   margin-top: 2px;
@@ -1195,7 +1271,7 @@ onMounted(async () => {
   padding: 14px 0;
 }
 
-.meal-section. with-divider {
+.meal-section.with-divider {
   border-bottom: 1px dashed #e5e7eb;
 }
 
@@ -1226,7 +1302,7 @@ onMounted(async () => {
   color: #c2410c;
 }
 
-. badge-evening {
+.badge-evening {
   background: linear-gradient(135deg, #fce7f3, #fbcfe8);
   color: #be185d;
 }
@@ -1236,7 +1312,7 @@ onMounted(async () => {
   color: #64748b;
 }
 
-. meal-time {
+.meal-time {
   font-size: 11px;
   color: #9ca3af;
 }
@@ -1313,7 +1389,7 @@ onMounted(async () => {
   color: #fff;
 }
 
-. day-name {
+.day-name {
   font-size: 14px;
   font-weight: 600;
   color: #1e293b;
@@ -1361,7 +1437,7 @@ onMounted(async () => {
   border-radius: 20px;
   background: linear-gradient(135deg, #ec4899, #f472b6);
   color: #fff;
-  box-shadow: 0 8px 24px rgba(236, 72, 153, 0 3);
+  box-shadow: 0 8px 24px rgba(236, 72, 153, 0.3);
 }
 
 .btn-content {
@@ -1397,7 +1473,7 @@ onMounted(async () => {
   opacity: 0.85;
 }
 
-. btn-arrow {
+.btn-arrow {
   opacity: 0.7;
 }
 

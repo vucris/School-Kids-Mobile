@@ -231,7 +231,6 @@
     </div>
   </q-page>
 </template>
-
 <script setup>
 import { ref, onMounted } from 'vue';
 import { useQuasar } from 'quasar';
@@ -264,50 +263,38 @@ async function loadChildDetail() {
   try {
     loading.value = true;
 
-    const studentId = Number(route.params.studentId);
+    const studentId =
+      Number(route.params.studentId) ||
+      Number(localStorage.getItem('currentStudentId'));
+
     if (!studentId) {
       $q.notify({
         type: 'warning',
-        message: 'Thiếu thông tin học sinh.',
+        message: 'Thiếu thông tin học sinh.'
       });
       return;
     }
 
-    // lấy username phụ huynh hiện tại
-    const username = auth.user?.username || localStorage.getItem('username');
-    if (!username) {
+    if (!auth.accessToken) {
       $q.notify({
         type: 'warning',
-        message: 'Không tìm thấy tài khoản phụ huynh hiện tại.',
+        message: 'Bạn chưa đăng nhập.'
       });
       return;
     }
 
-    // lấy danh sách phụ huynh, tìm theo username
-    const resParents = await api.get('/parents/all');
-    const parentsApi = resParents.data || {};
-    const parents = parentsApi.data || [];
-    const parent = parents.find((p) => p.username === username);
+    // GỌI API CHI TIẾT CON: GET /parents/children/{studentId} (dùng token)
+    const res = await api.get(`/parents/children/${studentId}`, {
+      headers: { Authorization: `Bearer ${auth.accessToken}` }
+    });
 
-    if (!parent) {
-      $q.notify({
-        type: 'warning',
-        message: 'Không tìm thấy thông tin phụ huynh tương ứng.',
-      });
-      return;
-    }
-
-    // gọi API chi tiết con: GET /parents/{parentId}/children/{studentId}
-    const res = await api.get(
-      `/parents/${parent.id}/children/${studentId}`
-    );
     const apiResp = res.data || {};
     const data = apiResp.data;
 
     if (!data) {
       $q.notify({
         type: 'warning',
-        message: 'Không tìm thấy thông tin chi tiết của bé.',
+        message: 'Không tìm thấy thông tin chi tiết của bé.'
       });
       return;
     }
@@ -317,7 +304,7 @@ async function loadChildDetail() {
     console.error('[ChildDetail] loadChildDetail error', e);
     $q.notify({
       type: 'negative',
-      message: 'Không lấy được thông tin chi tiết của bé.',
+      message: e?.response?.data?.message || 'Không lấy được thông tin chi tiết của bé.'
     });
   } finally {
     loading.value = false;
@@ -332,7 +319,7 @@ onMounted(() => {
   if (!auth.accessToken) {
     $q.notify({
       type: 'warning',
-      message: 'Bạn chưa đăng nhập.',
+      message: 'Bạn chưa đăng nhập.'
     });
     return;
   }

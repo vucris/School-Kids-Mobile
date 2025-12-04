@@ -189,19 +189,18 @@
     </div>
   </q-page>
 </template>
-
 <script setup>
 import { ref, computed, onMounted } from "vue";
 import { useQuasar } from "quasar";
 import { api } from "boot/axios";
 import { useAuthStore } from "src/stores/auth";
+import { useRouter } from "vue-router";
 
 const $q = useQuasar();
 const auth = useAuthStore();
-
+const router = useRouter();
 const children = ref([]);
 const selectedChildId = ref(null);
-const parentId = ref(null);
 
 const loading = ref(false);
 
@@ -254,6 +253,11 @@ const currentChild = computed(
   () => children.value.find((c) => c.id === selectedChildId.value) || null
 );
 
+// headers Authorization cho các call /parents/**
+function getAuthHeaders() {
+  return auth.accessToken ? { Authorization: `Bearer ${auth.accessToken}` } : {};
+}
+
 /* ======= HELPERS ======= */
 
 function getStatusIcon(type) {
@@ -266,14 +270,16 @@ function getStatusIcon(type) {
   return icons[type] || "help_outline";
 }
 
+// GỬI LÊN BE: yyyy-MM-dd (chuẩn ISO)
 function toDMY(date) {
   const d = new Date(date);
-  const dd = String(d.getDate()).padStart(2, "0");
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
   const yyyy = d.getFullYear();
-  return `${dd}-${mm}-${yyyy}`;
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
 }
 
+// HIỂN THỊ LABEL: dd/MM
 function labelDMY(date) {
   const d = new Date(date);
   const dd = String(d.getDate()).padStart(2, "0");
@@ -295,10 +301,14 @@ function weekdayLabel(d) {
 
 function parseApiDate(str) {
   if (!str) return null;
+
+  // trường hợp dd-MM-yyyy
   if (/^\d{2}-\d{2}-\d{4}$/.test(str)) {
     const [dd, mm, yyyy] = str.split("-").map(Number);
     return new Date(yyyy, mm - 1, dd);
   }
+
+  // mặc định: để Date tự parse (yyyy-MM-dd ...)
   const d = new Date(str);
   if (Number.isNaN(d.getTime())) return null;
   return d;
@@ -324,35 +334,26 @@ function mapStatus(status) {
 
 /* ======= LOAD DATA ======= */
 
-async function loadParentAndChildren() {
+/**
+ * LẤY DANH SÁCH CON DỰA THEO TOKEN
+ * BE: ParentController.getChildrenInfo(@RequestHeader("Authorization") String token)
+ */
+async function loadChildren() {
   try {
     loading.value = true;
 
-    const username = auth.user?.username || localStorage.getItem("username");
-    if (!username) {
+    if (!auth.accessToken) {
       $q.notify({
         type: "warning",
-        message: "Không tìm thấy tài khoản phụ huynh.",
+        message: "Bạn chưa đăng nhập.",
       });
       return;
     }
 
-    const resParents = await api.get("/parents/all");
-    const parentsApi = resParents.data || {};
-    const parents = parentsApi.data || [];
-    const parent = parents.find((p) => p.username === username);
+    const resChildren = await api.get("/parents/children", {
+      headers: getAuthHeaders(),
+    });
 
-    if (!parent) {
-      $q.notify({
-        type: "warning",
-        message: "Không tìm thấy thông tin phụ huynh.",
-      });
-      return;
-    }
-
-    parentId.value = parent.id;
-
-    const resChildren = await api.get(`/parents/${parent.id}/children`);
     const childrenApi = resChildren.data || {};
     const list = childrenApi.data || [];
 
@@ -366,20 +367,36 @@ async function loadParentAndChildren() {
     if (children.value.length) {
       selectedChildId.value = children.value[0].id;
       await loadAttendanceForCurrentMonth();
+    } else {
+      weeks.value = [];
+      summary.value = {
+        present: 0,
+        excused: 0,
+        unexcused: 0,
+        undefined: 0,
+      };
     }
   } catch (e) {
-    console.error("[Attendance] loadParentAndChildren error", e);
+    console.error("[Attendance] loadChildren error", e);
     $q.notify({
       type: "negative",
-      message: "Không lấy được danh sách con.",
+      message: e?.response?.data?.message || "Không lấy được danh sách con.",
     });
   } finally {
     loading.value = false;
   }
 }
 
+/**
+ * LẤY ĐIỂM DANH THEO CON + THÁNG
+ * BE: ParentController.getChildAttendance(
+ *   token, studentId,
+ *   @RequestParam LocalDate startDate,
+ *   @RequestParam LocalDate endDate
+ * )
+ */
 async function loadAttendanceForCurrentMonth() {
-  if (!parentId.value || !selectedChildId.value) return;
+  if (!selectedChildId.value || !auth.accessToken) return;
 
   try {
     loading.value = true;
@@ -387,14 +404,14 @@ async function loadAttendanceForCurrentMonth() {
     const { start, end } = getMonthRange(year.value, monthIndex.value);
 
     const params = {
-      startDate: toDMY(start),
+      startDate: toDMY(start), // yyyy-MM-dd
       endDate: toDMY(end),
     };
 
-    const res = await api.get(
-      `/parents/${parentId.value}/children/${selectedChildId.value}/attendance`,
-      { params }
-    );
+    const res = await api.get(`/parents/children/${selectedChildId.value}/attendance`, {
+      params,
+      headers: getAuthHeaders(),
+    });
 
     const apiResp = res.data || {};
     const records = apiResp.data || [];
@@ -406,7 +423,7 @@ async function loadAttendanceForCurrentMonth() {
       const d = parseApiDate(dateStr);
       if (!d) return;
 
-      const key = d.toISOString().slice(0, 10);
+      const key = d.toISOString().slice(0, 10); // yyyy-MM-dd
       const status = r.status || r.attendanceStatus || r.checkStatus;
       byDate.set(key, status);
     });
@@ -416,7 +433,7 @@ async function loadAttendanceForCurrentMonth() {
     console.error("[Attendance] loadAttendanceForCurrentMonth error", e);
     $q.notify({
       type: "negative",
-      message: "Không lấy được dữ liệu điểm danh.",
+      message: e?.response?.data?.message || "Không lấy được dữ liệu điểm danh.",
     });
     weeks.value = [];
     summary.value = { present: 0, excused: 0, unexcused: 0, undefined: 0 };
@@ -436,6 +453,7 @@ function buildCalendarData(start, end, byDate) {
 
   while (cur <= end) {
     const jsDay = cur.getDay();
+    // chỉ tính T2–T6
     if (jsDay >= 1 && jsDay <= 5) {
       totalWorkDays++;
 
@@ -516,13 +534,20 @@ function selectChild(s) {
   selectedChildId.value = s.id;
   loadAttendanceForCurrentMonth();
 }
-
 function writeLeave() {
-  $q.notify({
-    type: "info",
-    message: "Màn viết đơn xin nghỉ sẽ được bổ sung sau.",
-  });
+  if (!auth.accessToken) {
+    $q.notify({
+      type: "warning",
+      message: "Bạn chưa đăng nhập.",
+      icon: "login",
+    });
+    return;
+  }
+  router.push("/leave");
 }
+// sau này có màn đơn xin nghỉ thì sửa lại thành router.push(...)
+
+/* ======= INIT ======= */
 
 onMounted(() => {
   if (!auth.accessToken) {
@@ -532,7 +557,7 @@ onMounted(() => {
     });
     return;
   }
-  loadParentAndChildren();
+  loadChildren();
 });
 </script>
 
